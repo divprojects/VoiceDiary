@@ -1474,7 +1474,9 @@ class MainActivity : AppCompatActivity() {
                             openUrlInBrowser(release.htmlUrl)
                         }
                     },
-                    negativeButton = "Later"
+                    negativeButton = "Later",
+                    neutralButton = null,
+                    neutralAction = null
                 )
             } else {
                 showUpdateResultDialog(
@@ -1750,6 +1752,7 @@ class MainActivity : AppCompatActivity() {
             ?.setTextColor(negativeColor)
         dialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
         configurePopupWindow(dialog)
+        animateDialogEntrance(dialog)
     }
 
     private fun confirmStopRecording() {
