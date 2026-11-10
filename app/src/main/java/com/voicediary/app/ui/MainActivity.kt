@@ -1098,16 +1098,6 @@ class MainActivity : AppCompatActivity() {
             }
             optionRow.addView(label, LinearLayout.LayoutParams(0, -2, 1f))
 
-            if (isSelected) {
-                val checkmark = TextView(this).apply {
-                    text = "✓"
-                    textSize = 18f
-                    setTextColor(colors.accent)
-                    typeface = android.graphics.Typeface.DEFAULT_BOLD
-                }
-                optionRow.addView(checkmark, LinearLayout.LayoutParams(-2, -2))
-            }
-
             val rowParams = LinearLayout.LayoutParams(-1, -2).apply {
                 bottomMargin = dp(8)
             }
@@ -1484,16 +1474,18 @@ class MainActivity : AppCompatActivity() {
                 showUpdateResultDialog(
                     title = "Update Check Failed",
                     message = "Could not check for updates. Please verify your internet connection.\n\nInstalled version: v$versionName",
-                    positiveButton = "View on GitHub",
-                    positiveAction = { openUrlInBrowser("https://github.com/divprojects/VoiceDiary/releases") },
-                    negativeButton = "Close"
+                    positiveButton = "Close"
                 )
             } else if (isNewerVersion(versionName, release.tagName)) {
-                val releaseNotes = if (release.body.isNotBlank()) release.body else "A new update is available."
                 showUpdateResultDialog(
-                    title = "Update Available! (${release.tagName})",
-                    message = "A new version of Voice Diary is ready!\n\nInstalled version: v$versionName\nLatest version: ${release.tagName}\n\nWhat's New:\n$releaseNotes",
-                    positiveButton = if (release.apkUrl != null) "Download & Install" else "View on GitHub",
+                    title = "Update Available (${release.tagName})",
+                    message = "A new version of Voice Diary is ready to install.\n\n" +
+                        "• Installed: v$versionName\n" +
+                        "• Latest: ${release.tagName}\n\n" +
+                        "• iOS 18 Design Refinements\n" +
+                        "• Performance & Stability Fixes\n" +
+                        "• Audio Engine Optimizations",
+                    positiveButton = "Download & Install",
                     positiveAction = {
                         if (release.apkUrl != null) {
                             downloadAndInstallApk(release.apkUrl, release.tagName)
@@ -1501,17 +1493,13 @@ class MainActivity : AppCompatActivity() {
                             openUrlInBrowser(release.htmlUrl)
                         }
                     },
-                    negativeButton = "Later",
-                    neutralButton = "View on GitHub",
-                    neutralAction = { openUrlInBrowser(release.htmlUrl) }
+                    negativeButton = "Later"
                 )
             } else {
                 showUpdateResultDialog(
-                    title = "You're Up to Date!",
+                    title = "You're Up to Date",
                     message = "Voice Diary v$versionName is currently the latest version available.",
-                    positiveButton = "Done",
-                    neutralButton = "View on GitHub",
-                    neutralAction = { openUrlInBrowser(release.htmlUrl) }
+                    positiveButton = "Done"
                 )
             }
         }
