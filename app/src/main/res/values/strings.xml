@@ -1,0 +1,109 @@
+<resources>
+    <string name="app_name">Voice Diary</string>
+    <string name="app_subtitle">Audio replay</string>
+    <string name="check_for_app_updates">Check for app updates</string>
+    <string name="switch_theme">Switch light or dark theme</string>
+    <string name="replay_buffer">REPLAY BUFFER</string>
+    <string name="not_recording">Not recording</string>
+    <string name="ready_to_record">Ready to record.</string>
+    <string name="available_to_save">AVAILABLE TO SAVE</string>
+    <string name="no_audio_available">No audio available to save yet</string>
+    <string name="start_recording">Start Recording</string>
+    <string name="stop_recording">Stop Recording</string>
+    <string name="recording_button_description">Start or stop microphone recording</string>
+    <string name="save_available_audio">Save Available Audio</string>
+    <string name="saving_replay">Saving Replay…</string>
+    <string name="save_replay_description">Save the available recent audio replay</string>
+    <string name="replay_settings">REPLAY SETTINGS</string>
+    <string name="maximum_replay_length">Maximum replay length</string>
+    <string name="choose_maximum_replay_length">Choose maximum replay length</string>
+    <string name="minutes_default">5 minutes</string>
+    <string name="shorter_recordings_note">Shorter recordings are saved when less audio is available.</string>
+    <string name="recordings">RECORDINGS</string>
+    <string name="folder_not_selected">Recordings folder: not selected. Choose a folder before starting.</string>
+    <string name="choose_folder_storage_usage">Choose a folder to see buffered storage usage.</string>
+    <string name="open_saved_recordings">Open Saved Recordings</string>
+    <string name="open_saved_recordings_description">Open the folder containing saved audio replays</string>
+    <string name="choose_recordings_folder">Choose Recordings Folder</string>
+    <string name="choose_change_recordings_folder_description">Choose or change where audio recordings are stored</string>
+    <string name="clear_audio_chunks">Clear Audio Chunks</string>
+    <string name="clear_audio_chunks_description">Delete unsaved audio chunks only; saved recordings are kept</string>
+
+    <string name="permission_start_instructions">Tap Start Recording, allow microphone access, then choose a folder for your recordings.</string>
+    <string name="folder_selection_cancelled">Folder selection was cancelled. Recording has not started.</string>
+    <string name="folder_changed">Recordings folder changed.</string>
+    <string name="folder_use_failed">Could not use that folder: %1$s</string>
+    <string name="storage_access_failed">storage access failed</string>
+    <string name="stopping_to_change_folder">Stopping recording before changing its storage folder…</string>
+    <string name="cleanup_failed">Automatic cleanup could not remove old chunks. Tap Clear Audio Chunks or choose a folder that allows deletion.</string>
+    <string name="resuming_from_notification">Resuming recording from your notification…</string>
+    <string name="folder_picker_failed">Could not open the folder picker: %1$s</string>
+    <string name="system_error">system error</string>
+    <string name="recording_starting">Starting microphone recording…</string>
+    <string name="service_start_failed">Could not start the recording service: %1$s</string>
+    <string name="system_restriction">system restriction</string>
+    <string name="saving_available_audio">Saving available recent audio…</string>
+    <string name="saved_audio_duration">Saved %1$s of available audio.</string>
+    <string name="folder_storage_checking">Checking access to the selected folder…</string>
+    <string name="choose_folder_before_opening">Choose a recordings folder before opening saved audio.</string>
+    <string name="no_file_browser">No file browser on this device can open the saved recordings folder.</string>
+    <string name="open_saved_audio_failed">Could not open saved recordings: %1$s</string>
+    <string name="file_browser_error">file browser error</string>
+    <string name="recording_audio">Recording audio</string>
+    <string name="open_saved_audio_accessibility">Open saved audio recordings</string>
+    <string name="choose_folder_before_opening_accessibility">Choose a recordings folder before opening saved audio</string>
+    <string name="stop_before_clearing_accessibility">Stop recording before clearing unsaved audio chunks. Saved recordings are kept.</string>
+    <string name="delete_unsaved_chunks_accessibility">Delete all unsaved audio chunks. Saved recordings are kept.</string>
+    <string name="start_recording_accessibility">Start microphone recording</string>
+    <string name="stop_recording_accessibility">Stop microphone recording</string>
+    <string name="start_recording_for_replay">Start recording to build your replay.</string>
+    <string name="replay_building">Your replay is building…</string>
+    <string name="available_audio_duration">%1$s available to save</string>
+    <string name="buffered_storage_status">%1$s buffered · keeps the latest %2$d min; older audio is automatically deleted.</string>
+    <string name="selected_folder_unavailable">Selected folder is unavailable. Re-select it to restore recording access.</string>
+    <string name="storage_access_problem">Storage access problem: %1$s</string>
+    <string name="selected_folder_unavailable_short">selected folder unavailable</string>
+    <string name="storage_lost_stopped">Storage access was lost. Recording has been stopped.</string>
+    <string name="microphone_permission_revoked">Microphone permission was revoked. Stopping the recording.</string>
+    <string name="microphone_permission_needed">Microphone permission is needed before recording can start.</string>
+    <string name="clearing_audio_chunks">Clearing unsaved audio chunks…</string>
+    <string name="no_chunks_to_clear">There were no audio chunks to clear.</string>
+    <string name="clear_audio_chunks_failed">Could not clear audio chunks: %1$s</string>
+    <string name="start_and_allow_microphone">Tap Start Recording and allow microphone access.</string>
+    <string name="start_and_choose_storage">Tap Start Recording and choose where you want to store your recordings.</string>
+    <string name="folder_unavailable_choose_another">Your recordings folder is unavailable. Choose a folder that allows recording and deletion.</string>
+    <string name="start_rolling_replay">Tap Start Recording to begin your rolling microphone replay.</string>
+    <string name="duration_hours">%1$d hr</string>
+    <string name="duration_hours_minutes">%1$d hr %2$d min</string>
+
+    <string name="guide_step_counter">VOICE DIARY · %1$d OF %2$d</string>
+    <string name="skip">Skip</string>
+    <string name="next">Next</string>
+    <string name="done">Done</string>
+    <string name="skip_app_guide">Skip the app guide</string>
+    <string name="finish_app_guide">Finish the app guide</string>
+    <string name="show_next_guide_step">Show the next guide step</string>
+    <string name="cancel">Cancel</string>
+    <string name="replay_length">Replay length</string>
+
+    <plurals name="minutes_format">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="replay_length_accessibility">
+        <item quantity="one">Replay length, %1$d minute. Double tap to change.</item>
+        <item quantity="other">Replay length, %1$d minutes. Double tap to change.</item>
+    </plurals>
+    <plurals name="cleared_audio_chunks">
+        <item quantity="one">Cleared %1$d audio chunk. Saved recordings were kept.</item>
+        <item quantity="other">Cleared %1$d audio chunks. Saved recordings were kept.</item>
+    </plurals>
+    <plurals name="duration_minutes_seconds">
+        <item quantity="one">%1$d min %2$02d sec</item>
+        <item quantity="other">%1$d min %2$02d sec</item>
+    </plurals>
+    <plurals name="duration_seconds">
+        <item quantity="one">%1$d sec</item>
+        <item quantity="other">%1$d sec</item>
+    </plurals>
+</resources>

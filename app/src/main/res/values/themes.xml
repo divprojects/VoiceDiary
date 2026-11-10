@@ -1,0 +1,119 @@
+<resources>
+    <style name="Theme.VoiceDiary" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="colorPrimary">@color/ios_dark_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorAccent">@color/ios_dark_blue</item>
+        <item name="colorSecondary">@color/ios_dark_blue</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSurface">@color/ios_dark_surface</item>
+        <item name="colorSurfaceVariant">@color/ios_dark_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/ios_dark_background</item>
+        <item name="colorSurfaceContainerLow">@color/ios_dark_surface</item>
+        <item name="colorSurfaceContainer">@color/ios_dark_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/ios_dark_surface</item>
+        <item name="colorSurfaceContainerHighest">@color/ios_dark_surface</item>
+        <item name="colorOnSurface">@color/ios_dark_text</item>
+        <item name="colorOnSurfaceVariant">@color/ios_dark_secondary</item>
+        <item name="colorOutline">@color/ios_dark_border</item>
+        <item name="colorOutlineVariant">@color/ios_dark_border</item>
+        <item name="android:colorBackground">@color/ios_dark_background</item>
+        <item name="android:statusBarColor">@color/ios_dark_background</item>
+        <item name="android:navigationBarColor">@color/ios_dark_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/ios_dark_background</item>
+        <item name="android:textColorPrimary">@color/ios_dark_text</item>
+        <item name="android:textColorSecondary">@color/ios_dark_secondary</item>
+        <item name="android:colorAccent">@color/ios_dark_blue</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.VoiceDiary.Dialog</item>
+        <item name="android:alertDialogTheme">@style/ThemeOverlay.VoiceDiary.Dialog</item>
+    </style>
+
+    <style name="Theme.VoiceDiary.Light" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="colorPrimary">@color/ios_light_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorAccent">@color/ios_light_blue</item>
+        <item name="colorSecondary">@color/ios_light_blue</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSurface">@color/ios_light_surface</item>
+        <item name="colorSurfaceVariant">@color/ios_light_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/ios_light_background</item>
+        <item name="colorSurfaceContainerLow">@color/ios_light_surface</item>
+        <item name="colorSurfaceContainer">@color/ios_light_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/ios_light_surface</item>
+        <item name="colorSurfaceContainerHighest">@color/ios_light_surface</item>
+        <item name="colorOnSurface">@color/ios_light_text</item>
+        <item name="colorOnSurfaceVariant">@color/ios_light_secondary</item>
+        <item name="colorOutline">@color/ios_light_border</item>
+        <item name="colorOutlineVariant">@color/ios_light_border</item>
+        <item name="android:colorBackground">@color/ios_light_background</item>
+        <item name="android:statusBarColor">@color/ios_light_background</item>
+        <item name="android:navigationBarColor">@color/ios_light_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/ios_light_background</item>
+        <item name="android:textColorPrimary">@color/ios_light_text</item>
+        <item name="android:textColorSecondary">@color/ios_light_secondary</item>
+        <item name="android:colorAccent">@color/ios_light_blue</item>
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.VoiceDiary.Light.Dialog</item>
+        <item name="android:alertDialogTheme">@style/ThemeOverlay.VoiceDiary.Light.Dialog</item>
+    </style>
+
+    <style name="ShapeAppearance.VoiceDiary.Rounded" parent="">
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ThemeOverlay.VoiceDiary.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/ios_dark_surface</item>
+        <item name="colorSurfaceVariant">@color/ios_dark_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/ios_dark_background</item>
+        <item name="colorSurfaceContainerLow">@color/ios_dark_surface</item>
+        <item name="colorSurfaceContainer">@color/ios_dark_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/ios_dark_surface</item>
+        <item name="colorSurfaceContainerHighest">@color/ios_dark_surface</item>
+        <item name="colorOnSurface">@color/ios_dark_text</item>
+        <item name="colorOnSurfaceVariant">@color/ios_dark_secondary</item>
+        <item name="colorOutline">@color/ios_dark_border</item>
+        <item name="colorOutlineVariant">@color/ios_dark_border</item>
+        <item name="colorPrimary">@color/ios_dark_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorAccent">@color/ios_dark_blue</item>
+        <item name="android:textColorPrimary">@color/ios_dark_text</item>
+        <item name="android:textColorSecondary">@color/ios_dark_secondary</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+    </style>
+
+    <style name="ThemeOverlay.VoiceDiary.Light.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/ios_light_surface</item>
+        <item name="colorSurfaceVariant">@color/ios_light_surface</item>
+        <item name="colorSurfaceContainerLowest">@color/ios_light_background</item>
+        <item name="colorSurfaceContainerLow">@color/ios_light_surface</item>
+        <item name="colorSurfaceContainer">@color/ios_light_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/ios_light_surface</item>
+        <item name="colorSurfaceContainerHighest">@color/ios_light_surface</item>
+        <item name="colorOnSurface">@color/ios_light_text</item>
+        <item name="colorOnSurfaceVariant">@color/ios_light_secondary</item>
+        <item name="colorOutline">@color/ios_light_border</item>
+        <item name="colorOutlineVariant">@color/ios_light_border</item>
+        <item name="colorPrimary">@color/ios_light_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorAccent">@color/ios_light_blue</item>
+        <item name="android:textColorPrimary">@color/ios_light_text</item>
+        <item name="android:textColorSecondary">@color/ios_light_secondary</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.VoiceDiary.Rounded</item>
+    </style>
+</resources>
