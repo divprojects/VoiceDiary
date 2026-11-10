@@ -36,6 +36,13 @@ data class ReplaySaveResult(
         get() = endedAtMillis - startedAtMillis
 }
 
+data class SavedRecording(
+    val uri: Uri,
+    val name: String,
+    val sizeBytes: Long,
+    val lastModifiedMillis: Long
+)
+
 class StorageManager(private val context: Context) {
 
     companion object {
@@ -581,6 +588,26 @@ class StorageManager(private val context: Context) {
             throw IOException("The recordings folder permission is unavailable. Choose it again.")
         }
         return treeUri
+    }
+
+    fun listSavedRecordings(): List<SavedRecording> {
+        if (!hasFolderSelection()) return emptyList()
+        return getDirectoryDocuments(SAVED_AUDIO_DIRECTORY).mapNotNull { document ->
+            val name = document.name ?: return@mapNotNull null
+            if (!name.endsWith(".m4a", ignoreCase = true)) return@mapNotNull null
+            SavedRecording(
+                document.uri,
+                name,
+                document.length(),
+                document.lastModified()
+            )
+        }.sortedByDescending { it.lastModifiedMillis }
+    }
+
+    fun deleteSavedRecording(uri: Uri): Boolean {
+        if (!hasFolderSelection()) return false
+        val doc = DocumentFile.fromSingleUri(context, uri) ?: return false
+        return doc.delete()
     }
 
 }

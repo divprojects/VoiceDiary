@@ -208,7 +208,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         saveButton.setOnClickListener { saveReplay() }
-        openRecordingsButton.setOnClickListener { openSavedRecordings() }
+        openRecordingsButton.setOnClickListener { showSavedRecordingsPlayerSheet() }
         clearChunksButton.setOnClickListener { confirmClearAudioChunks() }
         updateButton.setOnClickListener { showUpdateStatus() }
         themeToggleButton.setOnClickListener {
@@ -1123,6 +1123,177 @@ class MainActivity : AppCompatActivity() {
             applyIosTouchFeedback(this)
         }
         panel.addView(closeButton, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(8) })
+
+        dialog.setContentView(panel)
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.window?.apply {
+            setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
+            setGravity(Gravity.BOTTOM)
+            setLayout(-1, -2)
+        }
+        configurePopupWindow(dialog)
+        dialog.show()
+    }
+
+    private fun showSavedRecordingsPlayerSheet() {
+        val colors = palette()
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+
+        val dialog = android.app.Dialog(this)
+        val recordings = storageManager.listSavedRecordings()
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(10), dp(20), dp(24))
+            background = GradientDrawable().apply {
+                setColor(colors.surface)
+                cornerRadii = floatArrayOf(
+                    dp(28).toFloat(), dp(28).toFloat(),
+                    dp(28).toFloat(), dp(28).toFloat(),
+                    0f, 0f, 0f, 0f
+                )
+            }
+        }
+
+        val dragHandle = View(this).apply {
+            background = GradientDrawable().apply {
+                setColor(colors.secondaryText)
+                alpha = 80
+                cornerRadius = dp(3).toFloat()
+            }
+        }
+        panel.addView(dragHandle, LinearLayout.LayoutParams(dp(36), dp(5)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            bottomMargin = dp(16)
+        })
+
+        val titleText = TextView(this).apply {
+            text = "Saved Recordings"
+            textSize = 20f
+            setTextColor(colors.text)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        }
+        panel.addView(titleText, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
+
+        if (recordings.isEmpty()) {
+            val emptyText = TextView(this).apply {
+                text = "No saved recordings yet.\nTap 'Save Available Audio' to save a replay."
+                textSize = 15f
+                setTextColor(colors.secondaryText)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(24), 0, dp(24))
+            }
+            panel.addView(emptyText)
+        } else {
+            val scrollView = android.widget.ScrollView(this).apply {
+                isFillViewport = true
+            }
+            val listLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+
+            var activePlayer: android.media.MediaPlayer? = null
+            var activePlayButton: TextView? = null
+
+            for (rec in recordings) {
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(16), dp(14), dp(16), dp(14))
+                    background = roundedControl(colors.border, Color.TRANSPARENT)
+                    isClickable = true
+                    applyIosTouchFeedback(this)
+                }
+
+                val rowHeader = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+
+                val nameText = TextView(this).apply {
+                    text = rec.name
+                    textSize = 15f
+                    setTextColor(colors.text)
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+                rowHeader.addView(nameText, LinearLayout.LayoutParams(0, -2, 1f))
+
+                val playButton = TextView(this).apply {
+                    text = "▶ Play"
+                    textSize = 14f
+                    setTextColor(colors.accent)
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    setPadding(dp(12), dp(6), dp(12), dp(6))
+                    background = roundedControl(colors.accent, Color.TRANSPARENT)
+                }
+                rowHeader.addView(playButton, LinearLayout.LayoutParams(-2, -2))
+
+                row.addView(rowHeader, LinearLayout.LayoutParams(-1, -2))
+
+                val dateStr = java.text.SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault()).format(java.util.Date(rec.lastModifiedMillis))
+                val sizeStr = String.format(Locale.getDefault(), "%.1f MB", rec.sizeBytes / (1024.0 * 1024.0))
+                val infoText = TextView(this).apply {
+                    text = "$dateStr • $sizeStr"
+                    textSize = 12f
+                    setTextColor(colors.secondaryText)
+                }
+                val infoParams = LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(4)
+                }
+                row.addView(infoText, infoParams)
+
+                playButton.setOnClickListener {
+                    try {
+                        if (activePlayer != null) {
+                            activePlayer?.stop()
+                            activePlayer?.release()
+                            activePlayer = null
+                            activePlayButton?.text = "▶ Play"
+                            if (activePlayButton == playButton) {
+                                activePlayButton = null
+                                return@setOnClickListener
+                            }
+                        }
+                        val player = android.media.MediaPlayer.create(this@MainActivity, rec.uri)
+                        if (player != null) {
+                            activePlayer = player
+                            activePlayButton = playButton
+                            playButton.text = "⏸ Pause"
+                            player.start()
+                            player.setOnCompletionListener {
+                                playButton.text = "▶ Play"
+                                activePlayer = null
+                                activePlayButton = null
+                                player.release()
+                            }
+                        } else {
+                            Toast.makeText(this@MainActivity, "Could not play audio file", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity, "Error playing audio: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                val rowParams = LinearLayout.LayoutParams(-1, -2).apply {
+                    bottomMargin = dp(10)
+                }
+                listLayout.addView(row, rowParams)
+            }
+            scrollView.addView(listLayout, LinearLayout.LayoutParams(-1, dp(300)))
+            panel.addView(scrollView, LinearLayout.LayoutParams(-1, -2))
+        }
+
+        val closeButton = Button(this).apply {
+            text = "Done"
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            background = roundedControl(colors.accent, colors.accent)
+            setOnClickListener { dialog.dismiss() }
+            applyIosTouchFeedback(this)
+        }
+        panel.addView(closeButton, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(16) })
 
         dialog.setContentView(panel)
         dialog.setCancelable(true)
