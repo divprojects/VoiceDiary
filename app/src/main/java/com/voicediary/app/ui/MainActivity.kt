@@ -1129,11 +1129,11 @@ class MainActivity : AppCompatActivity() {
         dialog.setCanceledOnTouchOutside(true)
         dialog.window?.apply {
             setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
-            setGravity(Gravity.BOTTOM)
             setLayout(-1, -2)
         }
         configurePopupWindow(dialog)
         dialog.show()
+        animateCenterDialogEntrance(dialog)
     }
 
     private fun showSavedRecordingsPlayerSheet() {
@@ -1343,11 +1343,11 @@ class MainActivity : AppCompatActivity() {
         dialog.setCanceledOnTouchOutside(true)
         dialog.window?.apply {
             setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
-            setGravity(Gravity.BOTTOM)
             setLayout(-1, -2)
         }
         configurePopupWindow(dialog)
         dialog.show()
+        animateCenterDialogEntrance(dialog)
     }
 
     private fun setTextColorRecursively(view: View, color: Int) {
@@ -1700,6 +1700,29 @@ class MainActivity : AppCompatActivity() {
         val popupWindow = dialog.window ?: return
         popupWindow.setWindowAnimations(0)
         if (!fromBottom) popupWindow.setGravity(Gravity.CENTER)
+    }
+
+    private fun animateCenterDialogEntrance(dialog: android.app.Dialog) {
+        val popupWindow = dialog.window ?: return
+        popupWindow.setWindowAnimations(0)
+        popupWindow.setGravity(Gravity.CENTER)
+        popupWindow.decorView.post {
+            if (!dialog.isShowing) return@post
+            popupWindow.decorView.apply {
+                alpha = 0f
+                scaleX = 0.90f
+                scaleY = 0.90f
+                pivotX = width / 2f
+                pivotY = height / 2f
+                animate()
+                    .alpha(1f)
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(220)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                    .start()
+            }
+        }
     }
 
     private fun configurePopupWindow(dialog: android.app.Dialog) {
