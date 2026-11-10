@@ -1221,7 +1221,7 @@ class MainActivity : AppCompatActivity() {
                 rowHeader.addView(nameText, LinearLayout.LayoutParams(0, -2, 1f))
 
                 val playButton = TextView(this).apply {
-                    text = "▶ Play"
+                    text = "Play"
                     textSize = 14f
                     setTextColor(colors.accent)
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -1250,7 +1250,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val shareButton = TextView(this).apply {
-                    text = "↗ Share"
+                    text = "Share"
                     textSize = 13f
                     setTextColor(colors.accent)
                     setPadding(0, dp(4), dp(16), dp(4))
@@ -1266,7 +1266,7 @@ class MainActivity : AppCompatActivity() {
                 actionsRow.addView(shareButton, LinearLayout.LayoutParams(-2, -2))
 
                 val deleteButton = TextView(this).apply {
-                    text = "🗑 Delete"
+                    text = "Delete"
                     textSize = 13f
                     setTextColor(colors.danger)
                     setPadding(dp(4), dp(4), dp(8), dp(4))
@@ -1293,7 +1293,7 @@ class MainActivity : AppCompatActivity() {
                             activePlayer?.stop()
                             activePlayer?.release()
                             activePlayer = null
-                            activePlayButton?.text = "▶ Play"
+                            activePlayButton?.text = "Play"
                             if (activePlayButton == playButton) {
                                 activePlayButton = null
                                 return@setOnClickListener
@@ -1303,10 +1303,10 @@ class MainActivity : AppCompatActivity() {
                         if (player != null) {
                             activePlayer = player
                             activePlayButton = playButton
-                            playButton.text = "⏸ Pause"
+                            playButton.text = "Pause"
                             player.start()
                             player.setOnCompletionListener {
-                                playButton.text = "▶ Play"
+                                playButton.text = "Play"
                                 activePlayer = null
                                 activePlayButton = null
                                 player.release()
