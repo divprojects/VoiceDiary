@@ -272,9 +272,13 @@ class StorageManager(private val context: Context) {
     fun clearLoopSegments(exceptUri: Uri?): Int {
         val documents = getDirectoryDocuments(AUDIO_CHUNKS_DIRECTORY)
             .filter { it.isFile && SegmentFileMetadata.isAudioChunk(it.name.orEmpty()) }
+        val remainingDocuments = mutableListOf<DocumentFile>()
         var deletedCount = 0
         documents.forEach { document ->
-            if (document.uri == exceptUri) return@forEach
+            if (document.uri == exceptUri) {
+                remainingDocuments += document
+                return@forEach
+            }
             if (!deleteUri(document.uri)) {
                 throw IOException(
                     "Could not delete audio chunk ${document.name ?: document.uri}. " +
@@ -283,10 +287,9 @@ class StorageManager(private val context: Context) {
             }
             deletedCount++
         }
-        val latestRemainingEnd = documents.asSequence()
-            .filter { it.uri != exceptUri }
-            .mapNotNull { it.name?.let(SegmentFileMetadata::parse)?.endedAtMillis }
-            .maxOrNull() ?: 0L
+        val latestRemainingEnd = SegmentFileMetadata.latestEndMillis(
+            remainingDocuments.mapNotNull { it.name }
+        )
         if (exceptUri == null) {
             preferences.edit {
                 putLong(KEY_LATEST_AUDIO_END, latestRemainingEnd)
@@ -351,9 +354,9 @@ class StorageManager(private val context: Context) {
             }
             if (!expired) remainingDocuments += document
         }
-        val latestAudioEnd = remainingDocuments.asSequence()
-            .mapNotNull { it.name?.let(SegmentFileMetadata::parse)?.endedAtMillis }
-            .maxOrNull() ?: 0L
+        val latestAudioEnd = SegmentFileMetadata.latestEndMillis(
+            remainingDocuments.mapNotNull { it.name }
+        )
         preferences.edit { putLong(KEY_LATEST_AUDIO_END, latestAudioEnd) }
     }
 

@@ -8,7 +8,7 @@ This guide explains what each part of the project does and how one recording mov
 2. **`recording/RecordingService.kt`** runs as an Android microphone foreground service. It writes one-minute AAC audio chunks, keeps the rolling window tidy, and stays active when the app task is swiped away.
 3. **`storage/StorageManager.kt`** reads and writes in the folder selected by the user. It creates `Audio Chunks` and `Your Saved Audio`, lists temporary chunks, and joins/trims recent chunks into a saved replay.
 4. **`recording/SegmentRetentionPolicy.kt`** contains the time-window rules used to decide which audio is still available and which chunks have expired.
-5. **`storage/SegmentFileMetadata.kt`** creates and reads the timestamps in Voice Diary audio filenames.
+5. **`storage/SegmentFileMetadata.kt`** creates readable audio filenames and stores exact start/end timestamps in them, so retention and replay windows remain correct across midnight and date changes.
 
 When the user taps **Save Available Audio**, the service asks storage to find the newest continuous audio window, then saves it in `Your Saved Audio`. A real gap in the chunks shortens the replay rather than being silently filled.
 

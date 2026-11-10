@@ -1114,6 +1114,8 @@ class MainActivity : AppCompatActivity() {
 
         val dialog = android.app.Dialog(this)
         val recordings = storageManager.listSavedRecordings()
+        var activePlayer: android.media.MediaPlayer? = null
+        var activePlayButton: TextView? = null
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1165,9 +1167,6 @@ class MainActivity : AppCompatActivity() {
             val listLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
             }
-
-            var activePlayer: android.media.MediaPlayer? = null
-            var activePlayButton: TextView? = null
 
             for (rec in recordings) {
                 val row = LinearLayout(this).apply {
@@ -1260,15 +1259,22 @@ class MainActivity : AppCompatActivity() {
 
                 playButton.setOnClickListener {
                     try {
+                        if (activePlayer != null && activePlayButton === playButton) {
+                            val player = activePlayer ?: return@setOnClickListener
+                            if (player.isPlaying) {
+                                player.pause()
+                                playButton.text = "Resume"
+                            } else {
+                                player.start()
+                                playButton.text = "Pause"
+                            }
+                            return@setOnClickListener
+                        }
                         if (activePlayer != null) {
-                            activePlayer?.stop()
                             activePlayer?.release()
                             activePlayer = null
                             activePlayButton?.text = "Play"
-                            if (activePlayButton == playButton) {
-                                activePlayButton = null
-                                return@setOnClickListener
-                            }
+                            activePlayButton = null
                         }
                         val player = android.media.MediaPlayer.create(this@MainActivity, rec.uri)
                         if (player != null) {
@@ -1312,6 +1318,12 @@ class MainActivity : AppCompatActivity() {
         dialog.setContentView(panel)
         dialog.setCancelable(true)
         dialog.setCanceledOnTouchOutside(true)
+        dialog.setOnDismissListener {
+            activePlayer?.release()
+            activePlayer = null
+            activePlayButton?.text = "Play"
+            activePlayButton = null
+        }
         dialog.window?.apply {
             setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             setLayout(-1, -2)
@@ -1458,14 +1470,16 @@ class MainActivity : AppCompatActivity() {
                     positiveButton = "Close"
                 )
             } else if (isNewerVersion(versionName, release.tagName)) {
+                val releaseTitle = release.name.takeIf { it.isNotBlank() } ?: release.tagName
+                val releaseNotes = release.body.trim().takeIf { it.isNotEmpty() }
+                    ?.let { "\n\n$it" }
+                    .orEmpty()
                 showUpdateResultDialog(
                     title = "Update Available (${release.tagName})",
                     message = "A new version of Voice Diary is ready to install.\n\n" +
+                        "$releaseTitle\n\n" +
                         "• Installed: v$versionName\n" +
-                        "• Latest: ${release.tagName}\n\n" +
-                        "• iOS 18 Design Refinements\n" +
-                        "• Performance & Stability Fixes\n" +
-                        "• Audio Engine Optimizations",
+                        "• Latest: ${release.tagName}$releaseNotes",
                     positiveButton = "Download & Install",
                     positiveAction = {
                         if (release.apkUrl != null) {

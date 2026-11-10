@@ -28,11 +28,43 @@ class SegmentRetentionPolicyTest {
         val end = LocalTime.of(17, 59).atDate(today).atZone(zone).toInstant().toEpochMilli()
         val name = SegmentFileMetadata.fileName(start, end)
 
-        assertEquals(
-            "5-54 PM to 5-59 PM.m4a",
-            name
-        )
+        assertTrue(name.startsWith("5-54 PM to 5-59 PM__"))
         assertEquals(ReplayInterval(start, end), SegmentFileMetadata.parse(name))
+    }
+
+    @Test
+    fun segmentFileMetadataPreservesTheDateAcrossMidnight() {
+        val zone = ZoneId.of("UTC")
+        val start = java.time.LocalDate.of(2026, 11, 10)
+            .atTime(23, 59)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        val end = java.time.LocalDate.of(2026, 11, 11)
+            .atTime(0, 0)
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+        val name = SegmentFileMetadata.fileName(start, end)
+
+        assertEquals(ReplayInterval(start, end), SegmentFileMetadata.parse(name))
+        assertEquals(
+            ReplayInterval(start, end),
+            SegmentFileMetadata.parse(name.removeSuffix(".m4a") + "_1.m4a")
+        )
+    }
+
+    @Test
+    fun legacyTimeOnlySegmentNamesCanSpanMidnight() {
+        val interval = SegmentFileMetadata.parse("11-59 PM to 12-00 AM.m4a")
+
+        val parsed = interval ?: throw AssertionError("Expected a valid legacy segment filename.")
+        assertEquals(60_000L, parsed.endedAtMillis - parsed.startedAtMillis)
+    }
+
+    @Test
+    fun latestAudioEndIsZeroWhenNoChunksRemain() {
+        assertEquals(0L, SegmentFileMetadata.latestEndMillis(emptyList()))
     }
 
     @Test

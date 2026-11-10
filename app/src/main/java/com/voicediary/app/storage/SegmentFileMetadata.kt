@@ -12,19 +12,18 @@ internal object SegmentFileMetadata {
     private val rangePattern = Regex("^(.+?) to (.+?)(?:_\\d+)?\\.m4a$")
     private val incompleteSegmentPattern = Regex("^loop_\\d+\\.m4a$")
     private val timeFormatter = DateTimeFormatter.ofPattern("h-mm a", Locale.US)
+    private val timestampPattern = Regex("^.*__(\\d+)_(\\d+)(?:_\\d+)?\\.m4a$")
     private val timeFormatters = listOf(
         DateTimeFormatter.ofPattern("h-mm a", Locale.US),
         DateTimeFormatter.ofPattern("h a", Locale.US),
         DateTimeFormatter.ofPattern("H:mm", Locale.US)
     )
-    private val legacyPattern =
-        Regex("^.* \\d{4}-\\d{2}-\\d{2}__(\\d+)_(\\d+)\\.m4a$")
 
     fun parse(fileName: String): ReplayInterval? {
-        val legacyMatch = legacyPattern.matchEntire(fileName)
-        if (legacyMatch != null) {
-            val startedAtMillis = legacyMatch.groupValues[1].toLongOrNull() ?: return null
-            val endedAtMillis = legacyMatch.groupValues[2].toLongOrNull() ?: return null
+        val timestampMatch = timestampPattern.matchEntire(fileName)
+        if (timestampMatch != null) {
+            val startedAtMillis = timestampMatch.groupValues[1].toLongOrNull() ?: return null
+            val endedAtMillis = timestampMatch.groupValues[2].toLongOrNull() ?: return null
             return ReplayInterval(startedAtMillis, endedAtMillis)
                 .takeIf { it.endedAtMillis > it.startedAtMillis }
         }
@@ -40,7 +39,8 @@ internal object SegmentFileMetadata {
         val endTime = parseTime(endStr) ?: return null
 
         val startedAtMillis = startTime.atDate(today).atZone(zone).toInstant().toEpochMilli()
-        val endedAtMillis = endTime.atDate(today).atZone(zone).toInstant().toEpochMilli()
+        val endDate = if (endTime < startTime) today.plusDays(1) else today
+        val endedAtMillis = endTime.atDate(endDate).atZone(zone).toInstant().toEpochMilli()
         return ReplayInterval(startedAtMillis, endedAtMillis)
             .takeIf { it.endedAtMillis >= it.startedAtMillis }
     }
@@ -58,9 +58,12 @@ internal object SegmentFileMetadata {
         val zone = ZoneId.systemDefault()
         val start = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(startedAtMillis), zone)
         val end = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(endedAtMillis), zone)
-        return "${timeFormatter.format(start)} to ${timeFormatter.format(end)}.m4a"
+        return "${timeFormatter.format(start)} to ${timeFormatter.format(end)}__${startedAtMillis}_${endedAtMillis}.m4a"
     }
 
     fun isAudioChunk(fileName: String): Boolean =
         parse(fileName) != null || incompleteSegmentPattern.matches(fileName)
+
+    fun latestEndMillis(fileNames: Iterable<String>): Long =
+        fileNames.mapNotNull(::parse).maxOfOrNull { it.endedAtMillis } ?: 0L
 }
