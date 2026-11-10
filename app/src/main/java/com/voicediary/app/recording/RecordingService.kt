@@ -163,6 +163,13 @@ class RecordingService : Service() {
             stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val saveIntent = Intent(this, RecordingService::class.java).setAction(ACTION_SAVE)
+        val savePendingIntent = PendingIntent.getService(
+            this,
+            3,
+            saveIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Voice Diary")
             .setContentText(message)
@@ -171,6 +178,7 @@ class RecordingService : Service() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(isRecording || isSaving)
+            .addAction(0, "Save", savePendingIntent)
             .addAction(0, "Stop", stopPendingIntent)
             .build()
     }

@@ -1244,6 +1244,49 @@ class MainActivity : AppCompatActivity() {
                 }
                 row.addView(infoText, infoParams)
 
+                val actionsRow = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+
+                val shareButton = TextView(this).apply {
+                    text = "↗ Share"
+                    textSize = 13f
+                    setTextColor(colors.accent)
+                    setPadding(0, dp(4), dp(16), dp(4))
+                    setOnClickListener {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "audio/mp4"
+                            putExtra(Intent.EXTRA_STREAM, rec.uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "Share Recording"))
+                    }
+                }
+                actionsRow.addView(shareButton, LinearLayout.LayoutParams(-2, -2))
+
+                val deleteButton = TextView(this).apply {
+                    text = "🗑 Delete"
+                    textSize = 13f
+                    setTextColor(colors.danger)
+                    setPadding(dp(4), dp(4), dp(8), dp(4))
+                    setOnClickListener {
+                        if (storageManager.deleteSavedRecording(rec.uri)) {
+                            Toast.makeText(this@MainActivity, "Deleted ${rec.name}", Toast.LENGTH_SHORT).show()
+                            dialog.dismiss()
+                            showSavedRecordingsPlayerSheet()
+                        } else {
+                            Toast.makeText(this@MainActivity, "Could not delete file", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                actionsRow.addView(deleteButton, LinearLayout.LayoutParams(-2, -2))
+
+                val actionsParams = LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(6)
+                }
+                row.addView(actionsRow, actionsParams)
+
                 playButton.setOnClickListener {
                     try {
                         if (activePlayer != null) {
