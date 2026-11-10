@@ -239,11 +239,22 @@ class MainActivity : AppCompatActivity() {
         } else {
             idleInstructions()
         }
+        val interactiveViews = listOf(
+            startButton,
+            saveButton,
+            changeFolderButton,
+            openRecordingsButton,
+            clearChunksButton,
+            updateButton,
+            themeToggleButton,
+            segmentLengthPickerButton
+        )
+        interactiveViews.forEach { applyIosTouchFeedback(it) }
+
         val resumeFromBootNotification =
             intent?.action == BootResumeReceiver.ACTION_RESUME_RECORDING
         if (!resumeFromBootNotification) {
             mainContent.post {
-                if (savedInstanceState == null) animateMainContentEntrance()
                 showOnboardingTourIfNeeded()
             }
         } else {
@@ -711,24 +722,17 @@ class MainActivity : AppCompatActivity() {
         updateButton.isEnabled = !isSaving
     }
 
-    private fun animateMainContentEntrance() {
-        val density = resources.displayMetrics.density
-        val animatedViews = listOf(
-            mainContent.getChildAt(0),
-            findViewById(R.id.bufferCard),
-            findViewById(R.id.settingsCard),
-            findViewById(R.id.recordingsCard)
-        )
-        animatedViews.forEachIndexed { index, view ->
-            view.alpha = 0f
-            view.translationY = 12 * density
-            view.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setStartDelay(index * ENTRANCE_STAGGER_MILLIS)
-                .setDuration(ENTRANCE_ANIMATION_DURATION_MILLIS)
-                .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
-                .start()
+    private fun applyIosTouchFeedback(view: View) {
+        view.setOnTouchListener { v, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).start()
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+                }
+            }
+            false
         }
     }
 
@@ -1005,12 +1009,8 @@ class MainActivity : AppCompatActivity() {
                     cardTop + cardHeight
                 )
             )
-            card.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(DIALOG_ANIMATION_DURATION_MILLIS)
-                .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
-                .start()
+            card.alpha = 1f
+            card.translationY = 0f
         }
     }
 
@@ -1031,80 +1031,109 @@ class MainActivity : AppCompatActivity() {
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
 
-        val picker = NumberPicker(this).apply {
-            minValue = 0
-            maxValue = StorageManager.SEGMENT_LENGTHS_MINUTES.lastIndex
-            displayedValues = StorageManager.SEGMENT_LENGTHS_MINUTES
-                .map { resources.getQuantityString(R.plurals.minutes_format, it, it) }
-                .toTypedArray()
-            value = StorageManager.SEGMENT_LENGTHS_MINUTES
-                .indexOf(storageManager.getSegmentMinutes())
-                .coerceAtLeast(0)
-            wrapSelectorWheel = false
-            descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
-            setOnLongPressUpdateInterval(100)
-        }
-
         val dialog = android.app.Dialog(this)
+        val currentMinutes = storageManager.getSegmentMinutes()
+
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(12), dp(20), dp(18))
+            setPadding(dp(20), dp(10), dp(20), dp(24))
             background = GradientDrawable().apply {
                 setColor(colors.surface)
-                cornerRadius = dp(24).toFloat()
+                cornerRadii = floatArrayOf(
+                    dp(28).toFloat(), dp(28).toFloat(),
+                    dp(28).toFloat(), dp(28).toFloat(),
+                    0f, 0f, 0f, 0f
+                )
             }
         }
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+
+        val dragHandle = View(this).apply {
+            background = GradientDrawable().apply {
+                setColor(colors.secondaryText)
+                alpha = 80
+                cornerRadius = dp(3).toFloat()
+            }
         }
-        val cancel = TextView(this).apply {
-            setText(R.string.cancel)
-            textSize = 17f
-            setTextColor(colors.accent)
-            setPadding(dp(8), dp(12), dp(8), dp(12))
-            setOnClickListener { dialog.dismiss() }
+        val dragParams = LinearLayout.LayoutParams(dp(36), dp(5)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            bottomMargin = dp(16)
         }
-        val title = TextView(this).apply {
-            setText(R.string.replay_length)
-            textSize = 17f
+        panel.addView(dragHandle, dragParams)
+
+        val titleText = TextView(this).apply {
+            text = "Maximum Replay Buffer"
+            textSize = 18f
             setTextColor(colors.text)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
         }
-        val done = TextView(this).apply {
-            setText(R.string.done)
-            textSize = 17f
-            setTextColor(colors.accent)
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            setPadding(dp(8), dp(12), dp(8), dp(12))
-            setOnClickListener {
-                storageManager.setSegmentMinutes(
-                    StorageManager.SEGMENT_LENGTHS_MINUTES[picker.value]
-                )
-                updateDurationPickerLabel()
-                updateReplayWindowLabel()
-                dialog.dismiss()
-            }
+        val titleParams = LinearLayout.LayoutParams(-1, -2).apply {
+            bottomMargin = dp(16)
         }
-        actions.addView(cancel, LinearLayout.LayoutParams(0, -2, 1f))
-        actions.addView(title, LinearLayout.LayoutParams(0, -2, 2f))
-        actions.addView(done, LinearLayout.LayoutParams(0, -2, 1f))
-        panel.addView(actions)
-        panel.addView(picker, LinearLayout.LayoutParams(-1, dp(190)))
-        setTextColorRecursively(picker, colors.text)
+        panel.addView(titleText, titleParams)
+
+        val options = StorageManager.SEGMENT_LENGTHS_MINUTES
+        for (mins in options) {
+            val isSelected = mins == currentMinutes
+            val optionRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+                background = roundedControl(colors.border, if (isSelected) colors.border else Color.TRANSPARENT)
+                isClickable = true
+                applyIosTouchFeedback(this)
+                setOnClickListener {
+                    storageManager.setSegmentMinutes(mins)
+                    updateDurationPickerLabel()
+                    updateReplayWindowLabel()
+                    dialog.dismiss()
+                }
+            }
+
+            val label = TextView(this).apply {
+                text = resources.getQuantityString(R.plurals.minutes_format, mins, mins)
+                textSize = 16f
+                setTextColor(if (isSelected) colors.accent else colors.text)
+                typeface = if (isSelected) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            }
+            optionRow.addView(label, LinearLayout.LayoutParams(0, -2, 1f))
+
+            if (isSelected) {
+                val checkmark = TextView(this).apply {
+                    text = "✓"
+                    textSize = 18f
+                    setTextColor(colors.accent)
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+                optionRow.addView(checkmark, LinearLayout.LayoutParams(-2, -2))
+            }
+
+            val rowParams = LinearLayout.LayoutParams(-1, -2).apply {
+                bottomMargin = dp(8)
+            }
+            panel.addView(optionRow, rowParams)
+        }
+
+        val closeButton = Button(this).apply {
+            text = getString(R.string.cancel)
+            textSize = 16f
+            setTextColor(colors.accent)
+            background = roundedControl(colors.border, colors.surface)
+            setOnClickListener { dialog.dismiss() }
+            applyIosTouchFeedback(this)
+        }
+        panel.addView(closeButton, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(8) })
 
         dialog.setContentView(panel)
-        dialog.setCancelable(false)
-        dialog.setCanceledOnTouchOutside(false)
-        dialog.show()
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
         dialog.window?.apply {
             setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             setGravity(Gravity.BOTTOM)
+            setLayout(-1, -2)
         }
         configurePopupWindow(dialog)
-        animateDialogEntrance(dialog, fromBottom = true)
+        dialog.show()
     }
 
     private fun setTextColorRecursively(view: View, color: Int) {
@@ -1457,26 +1486,6 @@ class MainActivity : AppCompatActivity() {
         val popupWindow = dialog.window ?: return
         popupWindow.setWindowAnimations(0)
         if (!fromBottom) popupWindow.setGravity(Gravity.CENTER)
-        popupWindow.decorView.post {
-            if (!dialog.isShowing) return@post
-            popupWindow.decorView.apply {
-                alpha = 0f
-                val entrance = animate().alpha(1f)
-                    .setDuration(DIALOG_ANIMATION_DURATION_MILLIS)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
-                if (fromBottom) {
-                    translationY = 28 * resources.displayMetrics.density
-                    entrance.translationY(0f)
-                } else {
-                    pivotX = width / 2f
-                    pivotY = height / 2f
-                    scaleX = 0.96f
-                    scaleY = 0.96f
-                    entrance.scaleX(1f).scaleY(1f)
-                }
-                entrance.start()
-            }
-        }
     }
 
     private fun configurePopupWindow(dialog: android.app.Dialog) {
@@ -1659,9 +1668,6 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
         private const val STORAGE_STATUS_REFRESH_MILLIS = 15_000L
         private const val GUIDE_SCROLL_SETTLE_MILLIS = 350L
-        private const val ENTRANCE_ANIMATION_DURATION_MILLIS = 280L
-        private const val ENTRANCE_STAGGER_MILLIS = 50L
-        private const val DIALOG_ANIMATION_DURATION_MILLIS = 240L
         private const val RECORDING_PULSE_DURATION_MILLIS = 850L
     }
 }

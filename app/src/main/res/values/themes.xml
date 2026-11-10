@@ -70,7 +70,7 @@
     </style>
 
     <style name="ShapeAppearance.VoiceDiary.Rounded" parent="">
-        <item name="cornerSize">16dp</item>
+        <item name="cornerSize">24dp</item>
     </style>
 
     <style name="ThemeOverlay.VoiceDiary.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
