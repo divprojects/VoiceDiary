@@ -2,6 +2,7 @@ package com.voicediary.app.storage
 
 import com.voicediary.app.recording.ReplayInterval
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -10,8 +11,12 @@ import java.util.Locale
 internal object SegmentFileMetadata {
     private val rangePattern = Regex("^(.+?) to (.+?)(?:_\\d+)?\\.m4a$")
     private val incompleteSegmentPattern = Regex("^loop_\\d+\\.m4a$")
-    private val dateTimeFormatter =
-        DateTimeFormatter.ofPattern("h-mm-ss.SSS a '['yyyy-MM-dd']'", Locale.US)
+    private val timeFormatter = DateTimeFormatter.ofPattern("h-mm a", Locale.US)
+    private val timeFormatters = listOf(
+        DateTimeFormatter.ofPattern("h-mm a", Locale.US),
+        DateTimeFormatter.ofPattern("h a", Locale.US),
+        DateTimeFormatter.ofPattern("H:mm", Locale.US)
+    )
     private val legacyPattern =
         Regex("^.* \\d{4}-\\d{2}-\\d{2}__(\\d+)_(\\d+)\\.m4a$")
 
@@ -25,30 +30,35 @@ internal object SegmentFileMetadata {
         }
 
         val match = rangePattern.matchEntire(fileName) ?: return null
-        return try {
-            val zone = ZoneId.systemDefault()
-            val startedAtMillis = LocalDateTime
-                .parse(match.groupValues[1], dateTimeFormatter)
-                .atZone(zone)
-                .toInstant()
-                .toEpochMilli()
-            val endedAtMillis = LocalDateTime
-                .parse(match.groupValues[2], dateTimeFormatter)
-                .atZone(zone)
-                .toInstant()
-                .toEpochMilli()
-            ReplayInterval(startedAtMillis, endedAtMillis)
-                .takeIf { it.endedAtMillis > it.startedAtMillis }
-        } catch (_: DateTimeParseException) {
-            null
+        val startStr = match.groupValues[1]
+        val endStr = match.groupValues[2]
+
+        val zone = ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+
+        val startTime = parseTime(startStr) ?: return null
+        val endTime = parseTime(endStr) ?: return null
+
+        val startedAtMillis = startTime.atDate(today).atZone(zone).toInstant().toEpochMilli()
+        val endedAtMillis = endTime.atDate(today).atZone(zone).toInstant().toEpochMilli()
+        return ReplayInterval(startedAtMillis, endedAtMillis)
+            .takeIf { it.endedAtMillis >= it.startedAtMillis }
+    }
+
+    private fun parseTime(str: String): LocalTime? {
+        for (formatter in timeFormatters) {
+            try {
+                return LocalTime.parse(str, formatter)
+            } catch (_: DateTimeParseException) {}
         }
+        return null
     }
 
     fun fileName(startedAtMillis: Long, endedAtMillis: Long): String {
         val zone = ZoneId.systemDefault()
         val start = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(startedAtMillis), zone)
         val end = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(endedAtMillis), zone)
-        return "${dateTimeFormatter.format(start)} to ${dateTimeFormatter.format(end)}.m4a"
+        return "${timeFormatter.format(start)} to ${timeFormatter.format(end)}.m4a"
     }
 
     fun isAudioChunk(fileName: String): Boolean =

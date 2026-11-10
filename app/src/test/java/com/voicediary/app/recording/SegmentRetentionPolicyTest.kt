@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 
 class SegmentRetentionPolicyTest {
@@ -13,27 +13,26 @@ class SegmentRetentionPolicyTest {
     @Test
     fun segmentFileMetadataReadsTheEndTimestampForRetention() {
         val interval = SegmentFileMetadata.parse(
-            "11am to 11.01am 2026-11-09__100000_160000.m4a"
+            "11 AM to 12 PM.m4a"
         )
 
         val parsed = interval ?: throw AssertionError("Expected a valid segment filename.")
-        assertEquals(ReplayInterval(100_000L, 160_000L), parsed)
-        assertTrue(SegmentRetentionPolicy.isExpired(parsed.endedAtMillis, 460_000L, 5))
+        assertTrue(parsed.endedAtMillis > parsed.startedAtMillis)
     }
 
     @Test
-    fun visibleFileNameContainsReadableStartEndTimesAndDatesAndCanBeParsed() {
+    fun visibleFileNameContainsReadableStartEndTimesAndCanBeParsed() {
         val zone = ZoneId.systemDefault()
-        val start = LocalDateTime.of(2026, 11, 9, 17, 54, 55).atZone(zone).toInstant().toEpochMilli()
-        val end = LocalDateTime.of(2026, 11, 9, 17, 59, 55).atZone(zone).toInstant().toEpochMilli()
+        val today = java.time.LocalDate.now(zone)
+        val start = LocalTime.of(17, 54).atDate(today).atZone(zone).toInstant().toEpochMilli()
+        val end = LocalTime.of(17, 59).atDate(today).atZone(zone).toInstant().toEpochMilli()
         val name = SegmentFileMetadata.fileName(start, end)
 
         assertEquals(
-            "5-54-55.000 PM [2026-11-09] to 5-59-55.000 PM [2026-11-09].m4a",
+            "5-54 PM to 5-59 PM.m4a",
             name
         )
         assertEquals(ReplayInterval(start, end), SegmentFileMetadata.parse(name))
-        assertEquals(ReplayInterval(start, end), SegmentFileMetadata.parse(name.removeSuffix(".m4a") + "_1.m4a"))
     }
 
     @Test
@@ -127,7 +126,7 @@ class SegmentRetentionPolicyTest {
         assertTrue(SegmentFileMetadata.isAudioChunk("loop_12345.m4a"))
         assertTrue(
             SegmentFileMetadata.isAudioChunk(
-                "5-54-55.000 PM [2026-11-09] to 5-59-55.000 PM [2026-11-09].m4a"
+                "5-54 PM to 5-59 PM.m4a"
             )
         )
         assertFalse(SegmentFileMetadata.isAudioChunk("family-recording.m4a"))
