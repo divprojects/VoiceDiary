@@ -1031,34 +1031,26 @@ class MainActivity : AppCompatActivity() {
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
 
-        val dialog = android.app.Dialog(this)
-        val currentMinutes = storageManager.getSegmentMinutes()
+        val picker = android.widget.NumberPicker(this).apply {
+            minValue = 0
+            maxValue = StorageManager.SEGMENT_LENGTHS_MINUTES.lastIndex
+            displayedValues = StorageManager.SEGMENT_LENGTHS_MINUTES
+                .map { resources.getQuantityString(R.plurals.minutes_format, it, it) }
+                .toTypedArray()
+            value = StorageManager.SEGMENT_LENGTHS_MINUTES
+                .indexOf(storageManager.getSegmentMinutes())
+                .coerceAtLeast(0)
+            wrapSelectorWheel = false
+            descendantFocusability = android.widget.NumberPicker.FOCUS_BLOCK_DESCENDANTS
+            setOnLongPressUpdateInterval(100)
+        }
 
+        val dialog = android.app.Dialog(this)
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(10), dp(20), dp(24))
-            background = GradientDrawable().apply {
-                setColor(colors.surface)
-                cornerRadii = floatArrayOf(
-                    dp(28).toFloat(), dp(28).toFloat(),
-                    dp(28).toFloat(), dp(28).toFloat(),
-                    0f, 0f, 0f, 0f
-                )
-            }
+            setPadding(dp(20), dp(16), dp(20), dp(20))
+            background = roundedSurface(colors.border, colors.surface)
         }
-
-        val dragHandle = View(this).apply {
-            background = GradientDrawable().apply {
-                setColor(colors.secondaryText)
-                alpha = 80
-                cornerRadius = dp(3).toFloat()
-            }
-        }
-        val dragParams = LinearLayout.LayoutParams(dp(36), dp(5)).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            bottomMargin = dp(16)
-        }
-        panel.addView(dragHandle, dragParams)
 
         val titleText = TextView(this).apply {
             text = "Maximum Replay Buffer"
@@ -1067,52 +1059,41 @@ class MainActivity : AppCompatActivity() {
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
         }
-        val titleParams = LinearLayout.LayoutParams(-1, -2).apply {
-            bottomMargin = dp(16)
-        }
-        panel.addView(titleText, titleParams)
+        panel.addView(titleText, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
 
-        val options = StorageManager.SEGMENT_LENGTHS_MINUTES
-        for (mins in options) {
-            val isSelected = mins == currentMinutes
-            val optionRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(14), dp(16), dp(14))
-                background = roundedControl(colors.border, if (isSelected) colors.border else Color.TRANSPARENT)
-                isClickable = true
-                applyIosTouchFeedback(this)
-                setOnClickListener {
-                    storageManager.setSegmentMinutes(mins)
-                    updateDurationPickerLabel()
-                    updateReplayWindowLabel()
-                    dialog.dismiss()
-                }
-            }
+        panel.addView(picker, LinearLayout.LayoutParams(-1, dp(180)))
 
-            val label = TextView(this).apply {
-                text = resources.getQuantityString(R.plurals.minutes_format, mins, mins)
-                textSize = 16f
-                setTextColor(if (isSelected) colors.accent else colors.text)
-                typeface = if (isSelected) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-            }
-            optionRow.addView(label, LinearLayout.LayoutParams(0, -2, 1f))
-
-            val rowParams = LinearLayout.LayoutParams(-1, -2).apply {
-                bottomMargin = dp(8)
-            }
-            panel.addView(optionRow, rowParams)
+        val buttonsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
 
-        val closeButton = Button(this).apply {
+        val cancelButton = Button(this).apply {
             text = getString(R.string.cancel)
-            textSize = 16f
-            setTextColor(colors.accent)
+            textSize = 15f
+            setTextColor(colors.secondaryText)
             background = roundedControl(colors.border, colors.surface)
             setOnClickListener { dialog.dismiss() }
-            applyIosTouchFeedback(this)
         }
-        panel.addView(closeButton, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(8) })
+
+        val doneButton = Button(this).apply {
+            text = "Done"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            background = roundedControl(colors.accent, colors.accent)
+            setOnClickListener {
+                storageManager.setSegmentMinutes(
+                    StorageManager.SEGMENT_LENGTHS_MINUTES[picker.value]
+                )
+                updateDurationPickerLabel()
+                updateReplayWindowLabel()
+                dialog.dismiss()
+            }
+        }
+
+        buttonsRow.addView(cancelButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(8) })
+        buttonsRow.addView(doneButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(8) })
+        panel.addView(buttonsRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
 
         dialog.setContentView(panel)
         dialog.setCancelable(true)
