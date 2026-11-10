@@ -60,7 +60,7 @@ Gradle's `.gradle`, `.kotlin`, `build`, and `app/build` folders, as well as `.id
 - The user must choose a writable folder before recording. Voice Diary remembers access to that folder using Android's Storage Access Framework.
 - Temporary chunks go under `Audio Chunks`; saved replays go under `Your Saved Audio`. Cleanup only targets audio files recognized as Voice Diary temporary chunks.
 - A microphone foreground service and partial wake lock support screen-off recording. They cannot override Android force-stop, permissions, hardware privacy controls, or device-specific power management.
-- The update button queries `https://api.github.com/repos/divprojects/VoiceDiary/releases/latest` to check for newer APK releases and prompts the user to download and install updates.
+- The update button queries `https://api.github.com/repos/divprojects/VoiceDiary/releases/latest` and opens the release page in a browser when an update is available. Android handles any APK installation.
 - The app records microphone input only. Android controls whether a Bluetooth microphone is routed to it.
 
 ## Change and verify code

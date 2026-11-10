@@ -1429,8 +1429,7 @@ class MainActivity : AppCompatActivity() {
         val tagName: String,
         val name: String,
         val htmlUrl: String,
-        val body: String,
-        val apkUrl: String?
+        val body: String
     )
 
     private fun showUpdateStatus() {
@@ -1480,14 +1479,8 @@ class MainActivity : AppCompatActivity() {
                         "$releaseTitle\n\n" +
                         "• Installed: v$versionName\n" +
                         "• Latest: ${release.tagName}$releaseNotes",
-                    positiveButton = "Download & Install",
-                    positiveAction = {
-                        if (release.apkUrl != null) {
-                            downloadAndInstallApk(release.apkUrl, release.tagName)
-                        } else {
-                            openUrlInBrowser(release.htmlUrl)
-                        }
-                    },
+                    positiveButton = "View Release",
+                    positiveAction = { openUrlInBrowser(release.htmlUrl) },
                     negativeButton = "Later",
                     neutralButton = null,
                     neutralAction = null
@@ -1522,22 +1515,7 @@ class MainActivity : AppCompatActivity() {
             val htmlUrl = json.optString("html_url", "https://github.com/divprojects/VoiceDiary/releases")
             val body = json.optString("body", "")
 
-            var apkUrl: String? = null
-            val assets = json.optJSONArray("assets")
-            if (assets != null) {
-                for (i in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(i)
-                    val assetName = asset.optString("name", "")
-                    if (assetName.endsWith(".apk", ignoreCase = true)) {
-                        val downloadUrl = asset.optString("browser_download_url", "")
-                        if (downloadUrl.isNotBlank()) {
-                            apkUrl = downloadUrl
-                            break
-                        }
-                    }
-                }
-            }
-            GitHubRelease(tagName, name, htmlUrl, body, apkUrl)
+            GitHubRelease(tagName, name, htmlUrl, body)
         } finally {
             conn.disconnect()
         }
@@ -1603,81 +1581,6 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
         } catch (e: Exception) {
             Toast.makeText(this, "Could not open browser", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun downloadAndInstallApk(downloadUrl: String, tagName: String) {
-        val colors = palette()
-        val downloadDialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Downloading Update")
-            .setMessage("Downloading Voice Diary $tagName...")
-            .setCancelable(false)
-            .create()
-
-        downloadDialog.show()
-        downloadDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
-        downloadDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
-        downloadDialog.findViewById<TextView>(android.R.id.message)?.setTextColor(colors.secondaryText)
-
-        lifecycleScope.launch {
-            val apkFile = withContext(Dispatchers.IO) {
-                try {
-                    val destFile = java.io.File(cacheDir, "VoiceDiary-$tagName.apk")
-                    val url = java.net.URL(downloadUrl)
-                    val conn = url.openConnection() as java.net.HttpURLConnection
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 15000
-                    conn.inputStream.use { input ->
-                        destFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    destFile
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-            if (isFinishing || isDestroyed) return@launch
-            downloadDialog.dismiss()
-
-            if (apkFile != null && apkFile.exists()) {
-                promptApkInstallation(apkFile)
-            } else {
-                Toast.makeText(this@MainActivity, "Download failed. Opening GitHub Releases page.", Toast.LENGTH_LONG).show()
-                openUrlInBrowser("https://github.com/divprojects/VoiceDiary/releases")
-            }
-        }
-    }
-
-    private fun promptApkInstallation(apkFile: java.io.File) {
-        if (!packageManager.canRequestPackageInstalls()) {
-            Toast.makeText(this, "Please allow Voice Diary to install unknown apps.", Toast.LENGTH_LONG).show()
-            try {
-                val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                    data = android.net.Uri.parse("package:$packageName")
-                }
-                startActivity(intent)
-            } catch (_: Exception) {
-                openUrlInBrowser("https://github.com/divprojects/VoiceDiary/releases")
-            }
-            return
-        }
-
-        try {
-            val apkUri = androidx.core.content.FileProvider.getUriForFile(
-                this,
-                "$packageName.fileprovider",
-                apkFile
-            )
-            val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(apkUri, "application/vnd.android.package-archive")
-                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
-            }
-            startActivity(installIntent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error launching installer: ${e.message}", Toast.LENGTH_LONG).show()
-            openUrlInBrowser("https://github.com/divprojects/VoiceDiary/releases")
         }
     }
 

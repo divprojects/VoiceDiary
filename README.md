@@ -10,7 +10,7 @@ Voice Diary is an Android app that continuously keeps a short, rolling recording
 4. Tap **Save Available Audio** to keep the recent continuous audio in `Your Saved Audio`.
 5. **Clear Audio Chunks** removes temporary Voice Diary chunks only; it does not delete saved replays or unrelated files.
 
-The app also has appearance controls, a first-launch spotlight guide, and live update checking via GitHub Releases. Tapping the update button checks `divprojects/VoiceDiary` for new releases and lets you download and install APK updates directly.
+The app also has appearance controls, a first-launch spotlight guide, and live update checking via GitHub Releases. The update button checks `divprojects/VoiceDiary` and opens the release page in your browser; APK installation is handled by Android.
 
 ## Build and test on Windows
 
@@ -23,6 +23,23 @@ Open PowerShell in this folder:
 ```
 
 The debug APK is written to `app\build\outputs\apk\debug\app-debug.apk`.
+
+## Create a signed release APK
+
+The APKs attached to earlier releases were signed with Android's debug certificate. Debug-signed APKs are for testing, can trigger Play Protect warnings, and are not suitable for a public release. Create a private release key in PowerShell with `keytool -genkeypair -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias voice-diary` (it will prompt for passwords), or use Android Studio's **Build → Generate Signed Bundle / APK**. Keep the keystore and its passwords backed up securely. Never commit or share them.
+
+For Gradle release builds, create an untracked `keystore.properties` file in the project root:
+
+```properties
+storeFile=release-key.jks
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyAlias=YOUR_KEY_ALIAS
+keyPassword=YOUR_KEY_PASSWORD
+```
+
+Keep the keystore file private too. Build with `.\gradlew.bat :app:assembleRelease`; the signed APK is written to `app\build\outputs\apk\release\app-release.apk`. Release builds intentionally fail when signing is not configured.
+
+Android requires updates to be signed with the same key as the installed app. Because previous Voice Diary APKs used the debug key, moving to a new private release key means uninstalling the old app before installing this release. Back up recordings as needed first. Play Protect may still show a warning for an app distributed outside Google Play; signing improves publisher identity but does not guarantee Google will immediately trust a new app. For the smoothest public distribution, publish through Google Play and submit any mistaken Play Protect detection to Google for review.
 
 ## Where to look
 
