@@ -1199,35 +1199,258 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private data class GitHubRelease(
+        val tagName: String,
+        val name: String,
+        val htmlUrl: String,
+        val body: String,
+        val apkUrl: String?
+    )
+
     private fun showUpdateStatus() {
-        val versionName = packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
+        } catch (e: Exception) {
+            "1.0.0"
+        }
         val colors = palette()
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Update Check")
-            .setMessage(
-                "Installed version: $versionName\n\n" +
-                    "Updates can't be checked until GitHub Releases is connected. " +
-                    "Once enabled, available updates and an Install Update option will appear here."
-            )
-            .setPositiveButton("Done", null)
+
+        val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Checking for Updates")
+            .setMessage("Connecting to GitHub Releases...")
             .setCancelable(false)
             .create()
+
+        progressDialog.show()
+        progressDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
+        progressDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
+        progressDialog.findViewById<TextView>(android.R.id.message)?.setTextColor(colors.secondaryText)
+        animateDialogEntrance(progressDialog)
+
+        lifecycleScope.launch {
+            val release = try {
+                fetchLatestReleaseFromGitHub()
+            } catch (e: Exception) {
+                null
+            }
+
+            if (isFinishing || isDestroyed) return@launch
+            progressDialog.dismiss()
+
+            if (release == null) {
+                showUpdateResultDialog(
+                    title = "Update Check Failed",
+                    message = "Could not check for updates. Please verify your internet connection.\n\nInstalled version: v$versionName",
+                    positiveButton = "View on GitHub",
+                    positiveAction = { openUrlInBrowser("https://github.com/divprojects/VoiceDiary/releases") },
+                    negativeButton = "Close"
+                )
+            } else if (isNewerVersion(versionName, release.tagName)) {
+                val releaseNotes = if (release.body.isNotBlank()) release.body else "A new update is available."
+                showUpdateResultDialog(
+                    title = "Update Available! (${release.tagName})",
+                    message = "A new version of Voice Diary is ready!\n\nInstalled version: v$versionName\nLatest version: ${release.tagName}\n\nWhat's New:\n$releaseNotes",
+                    positiveButton = if (release.apkUrl != null) "Download & Install" else "View on GitHub",
+                    positiveAction = {
+                        if (release.apkUrl != null) {
+                            downloadAndInstallApk(release.apkUrl, release.tagName)
+                        } else {
+                            openUrlInBrowser(release.htmlUrl)
+                        }
+                    },
+                    negativeButton = "Later",
+                    neutralButton = "View on GitHub",
+                    neutralAction = { openUrlInBrowser(release.htmlUrl) }
+                )
+            } else {
+                showUpdateResultDialog(
+                    title = "You're Up to Date!",
+                    message = "Voice Diary v$versionName is currently the latest version available.",
+                    positiveButton = "Done",
+                    neutralButton = "View on GitHub",
+                    neutralAction = { openUrlInBrowser(release.htmlUrl) }
+                )
+            }
+        }
+    }
+
+    private suspend fun fetchLatestReleaseFromGitHub(): GitHubRelease = withContext(Dispatchers.IO) {
+        val url = java.net.URL("https://api.github.com/repos/divprojects/VoiceDiary/releases/latest")
+        val conn = url.openConnection() as java.net.HttpURLConnection
+        conn.requestMethod = "GET"
+        conn.setRequestProperty("Accept", "application/vnd.github+json")
+        conn.setRequestProperty("User-Agent", "VoiceDiary-AndroidApp")
+        conn.connectTimeout = 8000
+        conn.readTimeout = 8000
+
+        try {
+            if (conn.responseCode != 200) {
+                throw java.io.IOException("HTTP error code ${conn.responseCode}")
+            }
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = org.json.JSONObject(text)
+            val tagName = json.optString("tag_name", "v1.0.0")
+            val name = json.optString("name", tagName)
+            val htmlUrl = json.optString("html_url", "https://github.com/divprojects/VoiceDiary/releases")
+            val body = json.optString("body", "")
+
+            var apkUrl: String? = null
+            val assets = json.optJSONArray("assets")
+            if (assets != null) {
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    val assetName = asset.optString("name", "")
+                    if (assetName.endsWith(".apk", ignoreCase = true)) {
+                        val downloadUrl = asset.optString("browser_download_url", "")
+                        if (downloadUrl.isNotBlank()) {
+                            apkUrl = downloadUrl
+                            break
+                        }
+                    }
+                }
+            }
+            GitHubRelease(tagName, name, htmlUrl, body, apkUrl)
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun isNewerVersion(currentVersion: String, latestVersion: String): Boolean {
+        val current = currentVersion.trimStart('v', 'V').split('.').mapNotNull { it.toIntOrNull() }
+        val latest = latestVersion.trimStart('v', 'V').split('.').mapNotNull { it.toIntOrNull() }
+
+        val maxLen = maxOf(current.size, latest.size)
+        for (i in 0 until maxLen) {
+            val c = current.getOrElse(i) { 0 }
+            val l = latest.getOrElse(i) { 0 }
+            if (l > c) return true
+            if (l < c) return false
+        }
+        return false
+    }
+
+    private fun showUpdateResultDialog(
+        title: String,
+        message: String,
+        positiveButton: String,
+        positiveAction: (() -> Unit)? = null,
+        negativeButton: String? = null,
+        negativeAction: (() -> Unit)? = null,
+        neutralButton: String? = null,
+        neutralAction: (() -> Unit)? = null
+    ) {
+        val colors = palette()
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setCancelable(false)
+            .setPositiveButton(positiveButton) { _, _ -> positiveAction?.invoke() }
+
+        if (negativeButton != null) {
+            builder.setNegativeButton(negativeButton) { _, _ -> negativeAction?.invoke() }
+        }
+        if (neutralButton != null) {
+            builder.setNeutralButton(neutralButton) { _, _ -> neutralAction?.invoke() }
+        }
+
+        val dialog = builder.create()
         dialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
         dialog.setOnShowListener {
-            dialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)
-                ?.setTextColor(colors.text)
-            dialog.findViewById<TextView>(android.R.id.message)
-                ?.apply {
-                    setTextColor(colors.secondaryText)
-                    setLineSpacing(4 * resources.displayMetrics.density, 1f)
-                }
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
-                .setTextColor(colors.accent)
-            dialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
+            dialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
+            dialog.findViewById<TextView>(android.R.id.message)?.apply {
+                setTextColor(colors.secondaryText)
+                setLineSpacing(4 * resources.displayMetrics.density, 1f)
+            }
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(colors.accent)
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(colors.secondaryText)
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL)?.setTextColor(colors.secondaryText)
             configurePopupWindow(dialog)
             animateDialogEntrance(dialog)
         }
         dialog.show()
+    }
+
+    private fun openUrlInBrowser(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open browser", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun downloadAndInstallApk(downloadUrl: String, tagName: String) {
+        val colors = palette()
+        val downloadDialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Downloading Update")
+            .setMessage("Downloading Voice Diary $tagName...")
+            .setCancelable(false)
+            .create()
+
+        downloadDialog.show()
+        downloadDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
+        downloadDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
+        downloadDialog.findViewById<TextView>(android.R.id.message)?.setTextColor(colors.secondaryText)
+
+        lifecycleScope.launch {
+            val apkFile = withContext(Dispatchers.IO) {
+                try {
+                    val destFile = java.io.File(cacheDir, "VoiceDiary-$tagName.apk")
+                    val url = java.net.URL(downloadUrl)
+                    val conn = url.openConnection() as java.net.HttpURLConnection
+                    conn.connectTimeout = 15000
+                    conn.readTimeout = 15000
+                    conn.inputStream.use { input ->
+                        destFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    destFile
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            if (isFinishing || isDestroyed) return@launch
+            downloadDialog.dismiss()
+
+            if (apkFile != null && apkFile.exists()) {
+                promptApkInstallation(apkFile)
+            } else {
+                Toast.makeText(this@MainActivity, "Download failed. Opening GitHub Releases page.", Toast.LENGTH_LONG).show()
+                openUrlInBrowser("https://github.com/divprojects/VoiceDiary/releases")
+            }
+        }
+    }
+
+    private fun promptApkInstallation(apkFile: java.io.File) {
+        if (!packageManager.canRequestPackageInstalls()) {
+            Toast.makeText(this, "Please allow Voice Diary to install unknown apps.", Toast.LENGTH_LONG).show()
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = android.net.Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            } catch (_: Exception) {
+                openUrlInBrowser("https://github.com/divprojects/VoiceDiary/releases")
+            }
+            return
+        }
+
+        try {
+            val apkUri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                apkFile
+            )
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(installIntent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error launching installer: ${e.message}", Toast.LENGTH_LONG).show()
+            openUrlInBrowser("https://github.com/divprojects/VoiceDiary/releases")
+        }
     }
 
     private fun animateDialogEntrance(dialog: android.app.Dialog, fromBottom: Boolean = false) {
