@@ -18,33 +18,29 @@
         android:paddingBottom="36dp">
 
         <!-- Large title header -->
-        <FrameLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:minHeight="64dp"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/titleText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/app_name"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="32sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="-0.02" />
-            </LinearLayout>
+            <TextView
+                android:id="@+id/titleText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:text="@string/app_name"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="32sp"
+                android:textStyle="bold" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_gravity="end|center_vertical"
+                android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -69,7 +65,7 @@
                     android:scaleType="centerInside"
                     android:src="@drawable/ic_theme_sun" />
             </LinearLayout>
-        </FrameLayout>
+        </LinearLayout>
 
         <!-- Card 1: Replay Buffer -->
         <LinearLayout

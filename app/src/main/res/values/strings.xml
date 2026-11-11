@@ -109,7 +109,7 @@
     <string name="update_check_failed_message">Could not check for updates. Please verify your internet connection.\n\nInstalled version: v%1$s</string>
     <string name="close">Close</string>
     <string name="update_available">Update Available (%1$s)</string>
-    <string name="update_available_message">A new version of Voice Diary is ready to install.\n\n%1$s\n\nInstalled: v%2$s\nLatest: %3$s%4$s</string>
+    <string name="update_available_message">A new version of Voice Diary is available. Open the release page to download it.\n\n%1$s\n\nInstalled: v%2$s\nLatest: %3$s%4$s</string>
     <string name="view_release">View Release</string>
     <string name="later">Later</string>
     <string name="up_to_date">You\'re Up to Date</string>

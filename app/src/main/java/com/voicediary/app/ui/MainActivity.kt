@@ -593,7 +593,7 @@ class MainActivity : AppCompatActivity() {
         styleButton(
             startButton,
             if (isRecording) colors.danger else colors.accent,
-            Color.WHITE,
+            if (isLightTheme) Color.WHITE else Color.BLACK,
             if (isRecording) colors.danger else colors.accent
         )
         val latestAudioEnd = storageManager.getLatestAudioEndMillis()
@@ -606,7 +606,11 @@ class MainActivity : AppCompatActivity() {
         styleButton(
             saveButton,
             if (saveButton.isEnabled) colors.accent else colors.background,
-            if (saveButton.isEnabled) Color.WHITE else colors.secondaryText,
+            if (saveButton.isEnabled) {
+                if (isLightTheme) Color.WHITE else Color.BLACK
+            } else {
+                colors.secondaryText
+            },
             if (saveButton.isEnabled) colors.accent else colors.background
         )
         saveButton.setText(if (isSaving) R.string.saving_replay else R.string.save_available_audio)
@@ -863,7 +867,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
+            setTextColor(if (isLightTheme) Color.WHITE else Color.BLACK)
             minHeight = dp(46)
             setPadding(dp(22), 0, dp(22), 0)
             background = GradientDrawable().apply {
@@ -998,6 +1002,7 @@ class MainActivity : AppCompatActivity() {
         val cancelButton = Button(this).apply {
             setText(R.string.cancel)
             textSize = 15f
+            minHeight = dp(48)
             setTextColor(colors.secondaryText)
             background = roundedControl(colors.border, colors.surface)
             setOnClickListener { dialog.dismiss() }
@@ -1006,7 +1011,8 @@ class MainActivity : AppCompatActivity() {
         val doneButton = Button(this).apply {
             setText(R.string.done)
             textSize = 15f
-            setTextColor(Color.WHITE)
+            minHeight = dp(48)
+            setTextColor(if (isLightTheme) Color.WHITE else Color.BLACK)
             background = roundedControl(colors.accent, colors.accent)
             setOnClickListener {
                 storageManager.setSegmentMinutes(
@@ -1018,8 +1024,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        buttonsRow.addView(cancelButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(8) })
-        buttonsRow.addView(doneButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(8) })
+        buttonsRow.addView(cancelButton, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
+        buttonsRow.addView(doneButton, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
         panel.addView(buttonsRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
 
         dialog.setContentView(panel)
@@ -1066,25 +1072,9 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(20), dp(10), dp(20), dp(24))
             background = GradientDrawable().apply {
                 setColor(colors.surface)
-                cornerRadii = floatArrayOf(
-                    dp(28).toFloat(), dp(28).toFloat(),
-                    dp(28).toFloat(), dp(28).toFloat(),
-                    0f, 0f, 0f, 0f
-                )
+                cornerRadius = dp(20).toFloat()
             }
         }
-
-        val dragHandle = View(this).apply {
-            background = GradientDrawable().apply {
-                setColor(colors.secondaryText)
-                alpha = 80
-                cornerRadius = dp(3).toFloat()
-            }
-        }
-        panel.addView(dragHandle, LinearLayout.LayoutParams(dp(36), dp(5)).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            bottomMargin = dp(16)
-        })
 
         val titleText = TextView(this).apply {
             setText(R.string.saved_recordings_title)
@@ -1149,7 +1139,7 @@ class MainActivity : AppCompatActivity() {
                     contentDescription = getString(R.string.play_recording_accessibility, rec.name)
                     applyIosTouchFeedback(this)
                 }
-                rowHeader.addView(playButton, LinearLayout.LayoutParams(-2, dp(48)))
+                rowHeader.addView(playButton, LinearLayout.LayoutParams(-2, -2))
 
                 row.addView(rowHeader, LinearLayout.LayoutParams(-1, -2))
 
@@ -1194,7 +1184,7 @@ class MainActivity : AppCompatActivity() {
                         startActivity(Intent.createChooser(shareIntent, getString(R.string.share_recording)))
                     }
                 }
-                actionsRow.addView(shareButton, LinearLayout.LayoutParams(-2, dp(48)))
+                actionsRow.addView(shareButton, LinearLayout.LayoutParams(-2, -2))
 
                 val deleteButton = TextView(this).apply {
                     setText(R.string.delete)
@@ -1244,7 +1234,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-                actionsRow.addView(deleteButton, LinearLayout.LayoutParams(-2, dp(48)))
+                actionsRow.addView(deleteButton, LinearLayout.LayoutParams(-2, -2))
 
                 val actionsParams = LinearLayout.LayoutParams(-1, -2).apply {
                     topMargin = dp(6)
@@ -1313,19 +1303,23 @@ class MainActivity : AppCompatActivity() {
                 }
                 listLayout.addView(row, rowParams)
             }
-            scrollView.addView(listLayout, LinearLayout.LayoutParams(-1, dp(300)))
+            val scaledChromeHeight = (260 * resources.configuration.fontScale * density).toInt()
+            val listViewportHeight = (resources.displayMetrics.heightPixels - scaledChromeHeight)
+                .coerceIn(dp(80), dp(300))
+            scrollView.addView(listLayout, LinearLayout.LayoutParams(-1, listViewportHeight))
             panel.addView(scrollView, LinearLayout.LayoutParams(-1, -2))
         }
 
         val closeButton = Button(this).apply {
             setText(R.string.done)
             textSize = 16f
-            setTextColor(Color.WHITE)
+            minHeight = dp(50)
+            setTextColor(if (isLightTheme) Color.WHITE else Color.BLACK)
             background = roundedControl(colors.accent, colors.accent)
             setOnClickListener { dialog.dismiss() }
             applyIosTouchFeedback(this)
         }
-        panel.addView(closeButton, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(16) })
+        panel.addView(closeButton, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
 
         dialog.setContentView(panel)
         dialog.setCancelable(true)
@@ -1334,7 +1328,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             setLayout(-1, -2)
         }
-        configurePopupWindow(dialog, bottomSheet = true) {
+        configurePopupWindow(dialog) {
             activePlayer?.release()
             activePlayer = null
             activePlayButton?.setText(R.string.play)
@@ -1444,11 +1438,15 @@ class MainActivity : AppCompatActivity() {
             .setCancelable(false)
             .create()
 
-        progressDialog.show()
         progressDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
-        progressDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
-        progressDialog.findViewById<TextView>(android.R.id.message)?.setTextColor(colors.secondaryText)
-        disableDialogAnimations(progressDialog)
+        configurePopupWindow(progressDialog)
+        progressDialog.setOnShowListener {
+            progressDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)
+                ?.setTextColor(colors.text)
+            progressDialog.findViewById<TextView>(android.R.id.message)
+                ?.setTextColor(colors.secondaryText)
+        }
+        progressDialog.show()
 
         lifecycleScope.launch {
             val release = try {
@@ -1530,9 +1528,8 @@ class MainActivity : AppCompatActivity() {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(colors.accent)
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(colors.secondaryText)
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL)?.setTextColor(colors.secondaryText)
-            configurePopupWindow(dialog)
-            disableDialogAnimations(dialog)
         }
+        configurePopupWindow(dialog)
         dialog.show()
     }
 
@@ -1544,14 +1541,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun disableDialogAnimations(dialog: android.app.Dialog) {
-        val popupWindow = dialog.window ?: return
-        popupWindow.setWindowAnimations(0)
-    }
-
     private fun configurePopupWindow(
         dialog: android.app.Dialog,
-        bottomSheet: Boolean = false,
         onDismiss: (() -> Unit)? = null
     ) {
         val popupWindow = dialog.window ?: return
@@ -1559,11 +1550,11 @@ class MainActivity : AppCompatActivity() {
             ?: resources.displayMetrics.widthPixels
         val horizontalMargin = (40 * resources.displayMetrics.density).toInt()
         popupWindow.setLayout(
-            if (bottomSheet) screenWidth else (screenWidth - horizontalMargin).coerceAtLeast(1),
+            (screenWidth - horizontalMargin).coerceAtLeast(1),
             -2
         )
         popupWindow.setWindowAnimations(0)
-        if (bottomSheet) popupWindow.setGravity(Gravity.BOTTOM)
+        popupWindow.setGravity(Gravity.CENTER)
         popupWindow.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         popupWindow.attributes = popupWindow.attributes.apply { dimAmount = 0.32f }
         dialog.setOnDismissListener {
@@ -1597,9 +1588,6 @@ class MainActivity : AppCompatActivity() {
             ?.setTextColor(positiveColor)
         dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)
             ?.setTextColor(negativeColor)
-        dialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
-        configurePopupWindow(dialog)
-        disableDialogAnimations(dialog)
     }
 
     private fun confirmStopRecording() {
@@ -1614,10 +1602,9 @@ class MainActivity : AppCompatActivity() {
             .create()
             .apply {
                 window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
+                configurePopupWindow(this)
                 setOnShowListener {
                     applyDialogPalette(this, colors, positiveColor = colors.danger)
-                    configurePopupWindow(this)
-                    disableDialogAnimations(this)
                 }
                 show()
             }
@@ -1634,10 +1621,9 @@ class MainActivity : AppCompatActivity() {
             .create()
             .apply {
                 window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
+                configurePopupWindow(this)
                 setOnShowListener {
                     applyDialogPalette(this, colors, positiveColor = colors.danger)
-                    configurePopupWindow(this)
-                    disableDialogAnimations(this)
                 }
                 show()
             }
