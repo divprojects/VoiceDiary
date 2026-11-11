@@ -1568,11 +1568,14 @@ class MainActivity : AppCompatActivity() {
                 for (i in 0 until assets.length()) {
                     val asset = assets.getJSONObject(i)
                     val assetName = asset.optString("name", "")
-                    if (assetName.endsWith(".apk", ignoreCase = true)) {
+                    if (assetName.contains("apk", ignoreCase = true)) {
                         apkUrl = asset.optString("browser_download_url").takeIf { it.isNotBlank() }
                         break
                     }
                 }
+            }
+            if (apkUrl == null) {
+                apkUrl = "https://github.com/divprojects/VoiceDiary/releases/download/$tagName/app-debug.apk"
             }
 
             GitHubRelease(tagName, name, htmlUrl, body, apkUrl)
