@@ -143,9 +143,4 @@
         <item quantity="one">%1$d sec</item>
         <item quantity="other">%1$d sec</item>
     </plurals>
-    <string name="install_update">Download &amp; Install</string>
-    <string name="downloading_update">Downloading Update</string>
-    <string name="downloading_update_message">Downloading app update…</string>
-    <string name="download_failed">Download failed: %1$s</string>
-    <string name="installation_failed">Installation failed: %1$s</string>
 </resources>

@@ -85,7 +85,6 @@ class MainActivity : AppCompatActivity() {
     private var lastStorageRefreshAt = 0L
     private var storageAccessAvailable: Boolean? = null
     private var resumeAfterRestartPending = false
-    private var pendingApkToInstall: java.io.File? = null
     private data class UiPalette(
         val background: Int,
         val surface: Int,
@@ -299,11 +298,6 @@ class MainActivity : AppCompatActivity() {
         uiHandler.removeCallbacks(replayWindowUpdater)
         uiHandler.post(replayWindowUpdater)
 
-        if (pendingApkToInstall != null && packageManager.canRequestPackageInstalls()) {
-            val apkFile = pendingApkToInstall
-            pendingApkToInstall = null
-            installApk(apkFile!!)
-        }
     }
 
     override fun onPause() {
@@ -1486,18 +1480,10 @@ class MainActivity : AppCompatActivity() {
                         release.tagName,
                         releaseNotes
                     ),
-                    positiveButton = if (release.apkDownloadUrl != null) getString(R.string.install_update) else getString(R.string.view_release),
-                    positiveAction = {
-                        if (release.apkDownloadUrl != null) {
-                            downloadAndInstallUpdate(release.apkDownloadUrl)
-                        } else {
-                            openUrlInBrowser(release.htmlUrl)
-                        }
-                    },
+                    positiveButton = getString(R.string.view_release),
+                    positiveAction = { openUrlInBrowser(release.htmlUrl) },
                     negativeButton = getString(R.string.later),
-                    negativeAction = null,
-                    neutralButton = if (release.apkDownloadUrl != null) getString(R.string.view_release) else null,
-                    neutralAction = if (release.apkDownloadUrl != null) { { openUrlInBrowser(release.htmlUrl) } } else null
+                    negativeAction = null
                 )
             } else {
                 showUpdateResultDialog(
@@ -1506,145 +1492,6 @@ class MainActivity : AppCompatActivity() {
                     positiveButton = getString(R.string.done)
                 )
             }
-        }
-    }
-
-    private fun downloadAndInstallUpdate(apkUrl: String) {
-        val colors = palette()
-        val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(R.string.downloading_update)
-            .setMessage(R.string.downloading_update_message)
-            .setCancelable(false)
-            .create()
-
-        progressDialog.show()
-        progressDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
-        progressDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
-        progressDialog.findViewById<TextView>(android.R.id.message)?.setTextColor(colors.secondaryText)
-        disableDialogAnimations(progressDialog)
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                var currentUrl = apkUrl
-                var file: java.io.File? = null
-                var redirectCount = 0
-                while (redirectCount < 5) {
-                    val url = java.net.URL(currentUrl)
-                    val conn = url.openConnection() as java.net.HttpURLConnection
-                    conn.instanceFollowRedirects = false
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 20000
-                    conn.setRequestProperty("User-Agent", "VoiceDiary-AndroidApp")
-                    conn.connect()
-
-                    val status = conn.responseCode
-                    if (status == java.net.HttpURLConnection.HTTP_MOVED_TEMP ||
-                        status == java.net.HttpURLConnection.HTTP_MOVED_PERM ||
-                        status == java.net.HttpURLConnection.HTTP_SEE_OTHER ||
-                        status == 307 || status == 308) {
-                        val redirectUrl = conn.getHeaderField("Location")
-                        conn.disconnect()
-                        if (redirectUrl != null) {
-                            currentUrl = redirectUrl
-                            redirectCount++
-                            continue
-                        }
-                    }
-
-                    if (status != 200) {
-                        conn.disconnect()
-                        throw java.io.IOException("HTTP error $status")
-                    }
-
-                    file = java.io.File(getExternalFilesDir(null), "update.apk")
-                    val totalLength = conn.contentLengthLong
-                    conn.inputStream.use { input ->
-                        file.outputStream().use { output ->
-                            val buffer = ByteArray(8192)
-                            var bytesRead: Int
-                            var downloadedBytes = 0L
-                            var lastReportTime = 0L
-                            while (input.read(buffer).also { bytesRead = it } != -1) {
-                                output.write(buffer, 0, bytesRead)
-                                downloadedBytes += bytesRead
-                                val now = System.currentTimeMillis()
-                                if (totalLength > 0 && now - lastReportTime > 200) {
-                                    lastReportTime = now
-                                    val percent = ((downloadedBytes * 100) / totalLength).toInt()
-                                    withContext(Dispatchers.Main) {
-                                        progressDialog.setMessage(
-                                            getString(R.string.downloading_update_message) + " $percent%"
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    conn.disconnect()
-                    break
-                }
-
-                if (file == null || !file.exists() || file.length() == 0L) {
-                    throw java.io.IOException("Downloaded APK file is empty or missing.")
-                }
-
-                withContext(Dispatchers.Main) {
-                    progressDialog.dismiss()
-                    installApk(file)
-                }
-            } catch (e: Exception) {
-                Log.e("VoiceDiaryUpdate", "Download error", e)
-                withContext(Dispatchers.Main) {
-                    progressDialog.dismiss()
-                    Toast.makeText(
-                        this@MainActivity,
-                        getString(R.string.download_failed, e.localizedMessage ?: "Network error"),
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-        }
-    }
-
-    private fun installApk(file: java.io.File) {
-        if (!packageManager.canRequestPackageInstalls()) {
-            pendingApkToInstall = file
-            try {
-                val intent = Intent(
-                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    "package:$packageName".toUri()
-                )
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("VoiceDiaryUpdate", "Could not open unknown app sources settings", e)
-            }
-            Toast.makeText(
-                this,
-                "Please allow 'Install unknown apps' for Voice Diary to continue installation.",
-                Toast.LENGTH_LONG
-            ).show()
-            return
-        }
-
-        try {
-            val uri = androidx.core.content.FileProvider.getUriForFile(
-                this,
-                "${packageName}.fileprovider",
-                file
-            )
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
-        } catch (e: Exception) {
-            Log.e("VoiceDiaryUpdate", "Install intent error", e)
-            Toast.makeText(
-                this,
-                getString(R.string.installation_failed, e.localizedMessage ?: ""),
-                Toast.LENGTH_LONG
-            ).show()
         }
     }
 
