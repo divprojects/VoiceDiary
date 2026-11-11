@@ -11,7 +11,8 @@ internal data class GitHubRelease(
     val tagName: String,
     val name: String,
     val htmlUrl: String,
-    val body: String
+    val body: String,
+    val apkDownloadUrl: String?
 )
 
 internal object GitHubReleaseClient {
@@ -37,7 +38,18 @@ internal object GitHubReleaseClient {
                 "https://github.com/divprojects/VoiceDiary/releases"
             )
             val body = json.optString("body", "")
-            GitHubRelease(tagName, name, htmlUrl, body)
+            val assets = json.optJSONArray("assets")
+            val apkDownloadUrl = assets?.let { releaseAssets ->
+                (0 until releaseAssets.length())
+                    .asSequence()
+                    .map(releaseAssets::getJSONObject)
+                    .firstOrNull {
+                        it.optString("name").equals("app-debug.apk", ignoreCase = true)
+                    }
+                    ?.optString("browser_download_url")
+                    ?.takeIf(String::isNotBlank)
+            } ?: "https://github.com/divprojects/VoiceDiary/releases/download/$tagName/app-debug.apk"
+            GitHubRelease(tagName, name, htmlUrl, body, apkDownloadUrl)
         } finally {
             connection.disconnect()
         }

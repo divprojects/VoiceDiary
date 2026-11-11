@@ -109,7 +109,7 @@
     <string name="update_check_failed_message">Could not check for updates. Please verify your internet connection.\n\nInstalled version: v%1$s</string>
     <string name="close">Close</string>
     <string name="update_available">Update Available (%1$s)</string>
-    <string name="update_available_message">A new version of Voice Diary is available. Open the release page to download it.\n\n%1$s\n\nInstalled: v%2$s\nLatest: %3$s%4$s</string>
+    <string name="update_available_message">A new version of Voice Diary is ready to download. Android will ask you to confirm installation.\n\n%1$s\n\nInstalled: v%2$s\nLatest: %3$s%4$s</string>
     <string name="view_release">View Release</string>
     <string name="later">Later</string>
     <string name="up_to_date">You\'re Up to Date</string>
@@ -122,6 +122,11 @@
     <string name="clear_audio_chunks_confirmation_title">Clear audio chunks?</string>
     <string name="clear_audio_chunks_confirmation_message">This permanently deletes unsaved audio chunks. Your saved recordings will not be affected.</string>
     <string name="clear_chunks">Clear Chunks</string>
+    <string name="install_update">Download &amp; Install</string>
+    <string name="downloading_update">Downloading Update</string>
+    <string name="downloading_update_message">Downloading app update…</string>
+    <string name="download_failed">Download failed: %1$s</string>
+    <string name="installation_failed">Could not open the Android installer: %1$s</string>
 
     <plurals name="minutes_format">
         <item quantity="one">%1$d minute</item>
