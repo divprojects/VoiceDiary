@@ -770,10 +770,7 @@ class MainActivity : AppCompatActivity() {
         mainContent.post {
             if (isFinishing || isDestroyed || onboardingStepIndex >= steps.size) return@post
             scrollToGuideTarget(step.target)
-            mainScrollView.postDelayed({
-                if (isFinishing || isDestroyed || onboardingStepIndex >= steps.size) return@postDelayed
-                displayOnboardingStep(steps[onboardingStepIndex], steps.size)
-            }, GUIDE_SCROLL_SETTLE_MILLIS)
+            displayOnboardingStep(steps[onboardingStepIndex], steps.size)
         }
     }
 
@@ -797,7 +794,7 @@ class MainActivity : AppCompatActivity() {
                 targetTop - visibleTop - margin
             else -> 0
         }
-        if (scrollDelta != 0) mainScrollView.smoothScrollBy(0, scrollDelta)
+        if (scrollDelta != 0) mainScrollView.scrollBy(0, scrollDelta)
     }
 
     private fun displayOnboardingStep(step: CoachMarkStep, stepCount: Int) {
@@ -896,8 +893,6 @@ class MainActivity : AppCompatActivity() {
         actions.addView(skip, LinearLayout.LayoutParams(0, -2, 1f))
         actions.addView(next, LinearLayout.LayoutParams(-2, -2))
         card.addView(actions)
-        card.alpha = 0f
-        card.translationY = dp(8).toFloat()
         onboardingOverlay.addView(
             card,
             FrameLayout.LayoutParams(
@@ -949,8 +944,6 @@ class MainActivity : AppCompatActivity() {
                     cardTop + cardHeight
                 )
             )
-            card.alpha = 1f
-            card.translationY = 0f
         }
     }
 
@@ -1044,7 +1037,6 @@ class MainActivity : AppCompatActivity() {
         }
         configurePopupWindow(dialog)
         dialog.show()
-        animateCenterDialogEntrance(dialog)
     }
 
     private fun showSavedRecordingsPlayerSheet() {
@@ -1359,7 +1351,6 @@ class MainActivity : AppCompatActivity() {
             activePlayerName = null
         }
         dialog.show()
-        animateBottomSheetEntrance(dialog)
     }
 
     private fun updateReplayWindowLabel() {
@@ -1463,7 +1454,7 @@ class MainActivity : AppCompatActivity() {
         progressDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
         progressDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
         progressDialog.findViewById<TextView>(android.R.id.message)?.setTextColor(colors.secondaryText)
-        animateDialogEntrance(progressDialog)
+        disableDialogAnimations(progressDialog)
 
         lifecycleScope.launch {
             val release = try {
@@ -1530,7 +1521,7 @@ class MainActivity : AppCompatActivity() {
         progressDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
         progressDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
         progressDialog.findViewById<TextView>(android.R.id.message)?.setTextColor(colors.secondaryText)
-        animateDialogEntrance(progressDialog)
+        disableDialogAnimations(progressDialog)
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -1693,7 +1684,7 @@ class MainActivity : AppCompatActivity() {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(colors.secondaryText)
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL)?.setTextColor(colors.secondaryText)
             configurePopupWindow(dialog)
-            animateDialogEntrance(dialog)
+            disableDialogAnimations(dialog)
         }
         dialog.show()
     }
@@ -1706,16 +1697,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun animateDialogEntrance(dialog: android.app.Dialog, fromBottom: Boolean = false) {
+    private fun disableDialogAnimations(dialog: android.app.Dialog) {
         val popupWindow = dialog.window ?: return
         popupWindow.setWindowAnimations(0)
-        if (!fromBottom) popupWindow.setGravity(Gravity.CENTER)
-    }
-
-    private fun animateCenterDialogEntrance(dialog: android.app.Dialog) {
-        val popupWindow = dialog.window ?: return
-        popupWindow.setWindowAnimations(0)
-        popupWindow.setGravity(Gravity.CENTER)
     }
 
     private fun configurePopupWindow(
@@ -1731,36 +1715,13 @@ class MainActivity : AppCompatActivity() {
             if (bottomSheet) screenWidth else (screenWidth - horizontalMargin).coerceAtLeast(1),
             -2
         )
+        popupWindow.setWindowAnimations(0)
         if (bottomSheet) popupWindow.setGravity(Gravity.BOTTOM)
         popupWindow.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         popupWindow.attributes = popupWindow.attributes.apply { dimAmount = 0.32f }
-        blurMainScreen(true)
         dialog.setOnDismissListener {
-            blurMainScreen(false)
             onDismiss?.invoke()
         }
-    }
-
-    private fun animateBottomSheetEntrance(dialog: android.app.Dialog) {
-        val popupWindow = dialog.window ?: return
-        popupWindow.setWindowAnimations(0)
-        popupWindow.setGravity(Gravity.BOTTOM)
-    }
-
-    private fun blurMainScreen(enabled: Boolean) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        mainScrollView.setRenderEffect(
-            if (enabled) {
-                val blurRadius = 18 * resources.displayMetrics.density
-                android.graphics.RenderEffect.createBlurEffect(
-                    blurRadius,
-                    blurRadius,
-                    android.graphics.Shader.TileMode.CLAMP
-                )
-            } else {
-                null
-            }
-        )
     }
 
     private fun formatStorageSize(bytes: Long): String {
@@ -1791,7 +1752,7 @@ class MainActivity : AppCompatActivity() {
             ?.setTextColor(negativeColor)
         dialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
         configurePopupWindow(dialog)
-        animateDialogEntrance(dialog)
+        disableDialogAnimations(dialog)
     }
 
     private fun confirmStopRecording() {
@@ -1809,7 +1770,7 @@ class MainActivity : AppCompatActivity() {
                 setOnShowListener {
                     applyDialogPalette(this, colors, positiveColor = colors.danger)
                     configurePopupWindow(this)
-                    animateDialogEntrance(this)
+                    disableDialogAnimations(this)
                 }
                 show()
             }
@@ -1829,7 +1790,7 @@ class MainActivity : AppCompatActivity() {
                 setOnShowListener {
                     applyDialogPalette(this, colors, positiveColor = colors.danger)
                     configurePopupWindow(this)
-                    animateDialogEntrance(this)
+                    disableDialogAnimations(this)
                 }
                 show()
             }
@@ -1913,6 +1874,5 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_LIGHT_THEME = "light_theme"
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
         private const val STORAGE_STATUS_REFRESH_MILLIS = 15_000L
-        private const val GUIDE_SCROLL_SETTLE_MILLIS = 350L
     }
 }

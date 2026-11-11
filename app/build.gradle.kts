@@ -31,8 +31,8 @@ android {
         applicationId = "com.voicediary.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.9.8"
+        versionCode = 20
+        versionName = "1.9.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
