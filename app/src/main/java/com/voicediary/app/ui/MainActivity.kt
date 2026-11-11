@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -32,6 +31,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -41,6 +41,7 @@ import com.voicediary.app.R
 import com.voicediary.app.recording.BootResumeReceiver
 import com.voicediary.app.recording.BootResumeState
 import com.voicediary.app.recording.RecordingService
+import com.voicediary.app.storage.SavedRecording
 import com.voicediary.app.storage.StorageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -95,7 +96,7 @@ class MainActivity : AppCompatActivity() {
     private val replayWindowUpdater = object : Runnable {
         override fun run() {
             updateReplayWindowLabel()
-            uiHandler.postDelayed(this, 100L)
+            uiHandler.postDelayed(this, 1_000L)
         }
     }
 
@@ -486,15 +487,12 @@ class MainActivity : AppCompatActivity() {
             isAppearanceLightStatusBars = isLightTheme
             isAppearanceLightNavigationBars = isLightTheme
         }
-        setTextColors(mainContent, colors.text)
         listOf(R.id.bufferCard, R.id.settingsCard, R.id.recordingsCard).forEach { id ->
             findViewById<LinearLayout>(id).background = roundedSurface(colors.border, colors.surface)
-            setTextColors(findViewById(id), colors.text)
         }
         folderText.setTextColor(colors.secondaryText)
         storageStatusText.setTextColor(colors.secondaryText)
         updateButtons()
-        styleButton(saveButton, colors.accent, Color.WHITE, colors.accent)
         styleButton(changeFolderButton, colors.surface, colors.accent, colors.border)
         styleButton(clearChunksButton, colors.surface, colors.danger, colors.border)
         styleButton(updateButton, colors.surface, colors.accent, colors.border)
@@ -503,7 +501,7 @@ class MainActivity : AppCompatActivity() {
             if (isLightTheme) R.drawable.ic_theme_moon else R.drawable.ic_theme_sun
         )
         themeToggleButton.contentDescription =
-            if (isLightTheme) "Switch to dark theme" else "Switch to light theme"
+            getString(if (isLightTheme) R.string.switch_to_dark_theme else R.string.switch_to_light_theme)
         updateDurationPickerLabel()
         saveProgress.indeterminateTintList =
             android.content.res.ColorStateList.valueOf(colors.accent)
@@ -516,21 +514,14 @@ class MainActivity : AppCompatActivity() {
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
             view.setPadding(
-                view.paddingLeft,
+                safeInsets.left,
                 safeInsets.top,
-                view.paddingRight,
+                safeInsets.right,
                 safeInsets.bottom
             )
             windowInsets
         }
         ViewCompat.requestApplyInsets(mainScrollView)
-    }
-
-    private fun setTextColors(view: View, color: Int) {
-        if (view is TextView && view !is Button) view.setTextColor(color)
-        if (view is android.view.ViewGroup) {
-            for (index in 0 until view.childCount) setTextColors(view.getChildAt(index), color)
-        }
     }
 
     private fun styleButton(button: Button, fillColor: Int, textColor: Int, strokeColor: Int) {
@@ -593,30 +584,6 @@ class MainActivity : AppCompatActivity() {
             cornerRadius = 20 * resources.displayMetrics.density
         }
 
-    private fun openSavedRecordings() {
-        if (!storageManager.hasFolderSelection()) {
-            statusText.setText(R.string.choose_folder_before_opening)
-            return
-        }
-        try {
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(
-                    storageManager.getSavedAudioFolderUri(),
-                    "vnd.android.document/directory"
-                )
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-            statusText.setText(R.string.no_file_browser)
-        } catch (exception: Exception) {
-            statusText.text = getString(
-                R.string.open_saved_audio_failed,
-                exception.message ?: getString(R.string.file_browser_error)
-            )
-        }
-    }
-
     private fun updateButtons() {
         startButton.isEnabled = !isSaving
         startButton.setText(if (isRecording) R.string.stop_recording else R.string.start_recording)
@@ -629,7 +596,19 @@ class MainActivity : AppCompatActivity() {
             Color.WHITE,
             if (isRecording) colors.danger else colors.accent
         )
-        saveButton.isEnabled = !isSaving
+        val latestAudioEnd = storageManager.getLatestAudioEndMillis()
+        val replayStillAvailable = latestAudioEnd >
+            System.currentTimeMillis() - storageManager.getSegmentMinutes() * 60_000L
+        val canSaveAudio = storageManager.hasFolderSelection() &&
+            storageAccessAvailable == true &&
+            (isRecording || replayStillAvailable)
+        saveButton.isEnabled = !isSaving && canSaveAudio
+        styleButton(
+            saveButton,
+            if (saveButton.isEnabled) colors.accent else colors.background,
+            if (saveButton.isEnabled) Color.WHITE else colors.secondaryText,
+            if (saveButton.isEnabled) colors.accent else colors.background
+        )
         saveButton.setText(if (isSaving) R.string.saving_replay else R.string.save_available_audio)
         saveProgress.visibility = if (isSaving) View.VISIBLE else View.GONE
         recordingStateText.setText(if (isRecording) R.string.recording_audio else R.string.not_recording)
@@ -726,13 +705,25 @@ class MainActivity : AppCompatActivity() {
         view.setOnTouchListener { v, event ->
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
                     v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).start()
+                    true
                 }
-                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                android.view.MotionEvent.ACTION_UP -> {
+                    v.isPressed = false
                     v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+                    val isInside = event.x >= 0 && event.y >= 0 &&
+                        event.x < v.width && event.y < v.height
+                    if (isInside) v.performClick()
+                    true
                 }
+                android.view.MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
+                    true
+                }
+                else -> true
             }
-            false
         }
     }
 
@@ -764,36 +755,15 @@ class MainActivity : AppCompatActivity() {
         add(
             CoachMarkStep(
                 startButton,
-                "Start your replay",
-                "Start Recording asks for microphone access, then records audio from your microphone."
-            )
-        )
-        add(
-            CoachMarkStep(
-                saveButton,
-                "Save the moment",
-                "Save Available Audio keeps the recent continuous audio in your replay window."
+                "Start recording",
+                "Allow microphone access and choose a writable recordings folder when prompted. Recording starts after setup."
             )
         )
         add(
             CoachMarkStep(
                 segmentLengthPickerButton,
-                "Set replay length",
-                "Choose how many recent minutes to keep available. Unsaved audio outside this window is removed automatically."
-            )
-        )
-        add(
-            CoachMarkStep(
-                updateButton,
-                "Check for updates",
-                "When GitHub Releases is connected, this button will check for a newer version."
-            )
-        )
-        add(
-            CoachMarkStep(
-                themeToggleButton,
-                "Choose your appearance",
-                "Switch between the light and dark themes with this button."
+                "Choose replay length",
+                "Choose how many recent minutes to keep. Older unsaved audio is removed automatically."
             )
         )
         add(
@@ -802,20 +772,6 @@ class MainActivity : AppCompatActivity() {
                 if (storageManager.hasFolderSelection()) "Change recordings folder"
                 else "Choose recordings folder",
                 "Select where Voice Diary stores temporary audio chunks and saved replays."
-            )
-        )
-        add(
-            CoachMarkStep(
-                openRecordingsButton,
-                "Open saved recordings",
-                "Open the folder containing replays that you have saved. Choose a recordings folder first if this control is unavailable."
-            )
-        )
-        add(
-            CoachMarkStep(
-                clearChunksButton,
-                "Clear temporary audio",
-                "Delete unsaved audio chunks when recording is stopped. Saved recordings are not affected."
             )
         )
     }
@@ -1053,7 +1009,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val titleText = TextView(this).apply {
-            text = "Maximum Replay Buffer"
+            setText(R.string.maximum_replay_buffer)
             textSize = 18f
             setTextColor(colors.text)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -1069,7 +1025,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val cancelButton = Button(this).apply {
-            text = getString(R.string.cancel)
+            setText(R.string.cancel)
             textSize = 15f
             setTextColor(colors.secondaryText)
             background = roundedControl(colors.border, colors.surface)
@@ -1077,7 +1033,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val doneButton = Button(this).apply {
-            text = "Done"
+            setText(R.string.done)
             textSize = 15f
             setTextColor(Color.WHITE)
             background = roundedControl(colors.accent, colors.accent)
@@ -1108,14 +1064,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSavedRecordingsPlayerSheet() {
+        lifecycleScope.launch {
+            try {
+                val recordings = withContext(Dispatchers.IO) {
+                    storageManager.listSavedRecordings()
+                }
+                if (!isFinishing && !isDestroyed) {
+                    showSavedRecordingsPlayerSheet(recordings)
+                }
+            } catch (exception: Exception) {
+                statusText.text = getString(
+                    R.string.load_saved_recordings_failed,
+                    exception.message ?: getString(R.string.storage_access_failed)
+                )
+            }
+        }
+    }
+
+    private fun showSavedRecordingsPlayerSheet(recordings: List<SavedRecording>) {
         val colors = palette()
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
 
         val dialog = android.app.Dialog(this)
-        val recordings = storageManager.listSavedRecordings()
         var activePlayer: android.media.MediaPlayer? = null
         var activePlayButton: TextView? = null
+        var activePlayerName: String? = null
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1143,7 +1117,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         val titleText = TextView(this).apply {
-            text = "Saved Recordings"
+            setText(R.string.saved_recordings_title)
             textSize = 20f
             setTextColor(colors.text)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -1153,7 +1127,7 @@ class MainActivity : AppCompatActivity() {
 
         if (recordings.isEmpty()) {
             val emptyText = TextView(this).apply {
-                text = "No saved recordings yet.\nTap 'Save Available Audio' to save a replay."
+                setText(R.string.no_saved_recordings_yet)
                 textSize = 15f
                 setTextColor(colors.secondaryText)
                 gravity = Gravity.CENTER
@@ -1173,8 +1147,6 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.VERTICAL
                     setPadding(dp(16), dp(14), dp(16), dp(14))
                     background = roundedControl(colors.border, Color.TRANSPARENT)
-                    isClickable = true
-                    applyIosTouchFeedback(this)
                 }
 
                 val rowHeader = LinearLayout(this).apply {
@@ -1187,25 +1159,38 @@ class MainActivity : AppCompatActivity() {
                     textSize = 15f
                     setTextColor(colors.text)
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
                 }
                 rowHeader.addView(nameText, LinearLayout.LayoutParams(0, -2, 1f))
 
                 val playButton = TextView(this).apply {
-                    text = "Play"
+                    setText(R.string.play)
                     textSize = 14f
                     setTextColor(colors.accent)
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    setPadding(dp(12), dp(6), dp(12), dp(6))
+                    minWidth = dp(64)
+                    minHeight = dp(48)
+                    gravity = Gravity.CENTER
+                    setPadding(dp(12), dp(8), dp(12), dp(8))
                     background = roundedControl(colors.accent, Color.TRANSPARENT)
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = getString(R.string.play_recording_accessibility, rec.name)
+                    applyIosTouchFeedback(this)
                 }
-                rowHeader.addView(playButton, LinearLayout.LayoutParams(-2, -2))
+                rowHeader.addView(playButton, LinearLayout.LayoutParams(-2, dp(48)))
 
                 row.addView(rowHeader, LinearLayout.LayoutParams(-1, -2))
 
                 val dateStr = java.text.SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault()).format(java.util.Date(rec.lastModifiedMillis))
-                val sizeStr = String.format(Locale.getDefault(), "%.1f MB", rec.sizeBytes / (1024.0 * 1024.0))
+                val sizeStr = String.format(
+                    Locale.getDefault(),
+                    getString(R.string.recording_size_megabytes),
+                    rec.sizeBytes / (1024.0 * 1024.0)
+                )
                 val infoText = TextView(this).apply {
-                    text = "$dateStr • $sizeStr"
+                    text = getString(R.string.recording_info_format, dateStr, sizeStr)
                     textSize = 12f
                     setTextColor(colors.secondaryText)
                 }
@@ -1220,37 +1205,76 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val shareButton = TextView(this).apply {
-                    text = "Share"
+                    setText(R.string.share)
                     textSize = 13f
                     setTextColor(colors.accent)
-                    setPadding(0, dp(4), dp(16), dp(4))
+                    minHeight = dp(48)
+                    gravity = Gravity.CENTER
+                    setPadding(dp(8), dp(6), dp(16), dp(6))
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = getString(R.string.share_recording_accessibility, rec.name)
+                    applyIosTouchFeedback(this)
                     setOnClickListener {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "audio/mp4"
                             putExtra(Intent.EXTRA_STREAM, rec.uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        startActivity(Intent.createChooser(shareIntent, "Share Recording"))
+                        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_recording)))
                     }
                 }
-                actionsRow.addView(shareButton, LinearLayout.LayoutParams(-2, -2))
+                actionsRow.addView(shareButton, LinearLayout.LayoutParams(-2, dp(48)))
 
                 val deleteButton = TextView(this).apply {
-                    text = "Delete"
+                    setText(R.string.delete)
                     textSize = 13f
                     setTextColor(colors.danger)
-                    setPadding(dp(4), dp(4), dp(8), dp(4))
+                    minHeight = dp(48)
+                    gravity = Gravity.CENTER
+                    setPadding(dp(8), dp(6), dp(8), dp(6))
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = getString(R.string.delete_recording_accessibility, rec.name)
+                    applyIosTouchFeedback(this)
                     setOnClickListener {
-                        if (storageManager.deleteSavedRecording(rec.uri)) {
-                            Toast.makeText(this@MainActivity, "Deleted ${rec.name}", Toast.LENGTH_SHORT).show()
-                            dialog.dismiss()
-                            showSavedRecordingsPlayerSheet()
-                        } else {
-                            Toast.makeText(this@MainActivity, "Could not delete file", Toast.LENGTH_SHORT).show()
+                        isEnabled = false
+                        lifecycleScope.launch {
+                            try {
+                                val deleted = withContext(Dispatchers.IO) {
+                                    storageManager.deleteSavedRecording(rec.uri)
+                                }
+                                if (deleted) {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        getString(R.string.deleted_recording, rec.name),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    dialog.dismiss()
+                                    showSavedRecordingsPlayerSheet()
+                                } else {
+                                    isEnabled = true
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        R.string.delete_recording_failed,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            } catch (exception: Exception) {
+                                isEnabled = true
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    getString(
+                                        R.string.delete_recording_error,
+                                        exception.message ?: getString(R.string.system_error)
+                                    ),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         }
                     }
                 }
-                actionsRow.addView(deleteButton, LinearLayout.LayoutParams(-2, -2))
+                actionsRow.addView(deleteButton, LinearLayout.LayoutParams(-2, dp(48)))
 
                 val actionsParams = LinearLayout.LayoutParams(-1, -2).apply {
                     topMargin = dp(6)
@@ -1263,36 +1287,54 @@ class MainActivity : AppCompatActivity() {
                             val player = activePlayer ?: return@setOnClickListener
                             if (player.isPlaying) {
                                 player.pause()
-                                playButton.text = "Resume"
+                                playButton.setText(R.string.resume)
+                                playButton.contentDescription =
+                                    getString(R.string.resume_recording_accessibility, rec.name)
                             } else {
                                 player.start()
-                                playButton.text = "Pause"
+                                playButton.setText(R.string.pause)
+                                playButton.contentDescription =
+                                    getString(R.string.pause_recording_accessibility, rec.name)
                             }
                             return@setOnClickListener
                         }
                         if (activePlayer != null) {
                             activePlayer?.release()
                             activePlayer = null
-                            activePlayButton?.text = "Play"
+                            activePlayButton?.setText(R.string.play)
+                            activePlayButton?.contentDescription = activePlayerName?.let {
+                                getString(R.string.play_recording_accessibility, it)
+                            }
                             activePlayButton = null
+                            activePlayerName = null
                         }
                         val player = android.media.MediaPlayer.create(this@MainActivity, rec.uri)
                         if (player != null) {
                             activePlayer = player
                             activePlayButton = playButton
-                            playButton.text = "Pause"
+                            activePlayerName = rec.name
+                            playButton.setText(R.string.pause)
+                            playButton.contentDescription =
+                                getString(R.string.pause_recording_accessibility, rec.name)
                             player.start()
                             player.setOnCompletionListener {
-                                playButton.text = "Play"
+                                playButton.setText(R.string.play)
+                                playButton.contentDescription =
+                                    getString(R.string.play_recording_accessibility, rec.name)
                                 activePlayer = null
                                 activePlayButton = null
+                                activePlayerName = null
                                 player.release()
                             }
                         } else {
-                            Toast.makeText(this@MainActivity, "Could not play audio file", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, R.string.could_not_play_audio, Toast.LENGTH_SHORT).show()
                         }
                     } catch (e: Exception) {
-                        Toast.makeText(this@MainActivity, "Error playing audio: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this@MainActivity,
+                            getString(R.string.play_audio_error, e.message ?: getString(R.string.system_error)),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
 
@@ -1306,7 +1348,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val closeButton = Button(this).apply {
-            text = "Done"
+            setText(R.string.done)
             textSize = 16f
             setTextColor(Color.WHITE)
             background = roundedControl(colors.accent, colors.accent)
@@ -1318,28 +1360,22 @@ class MainActivity : AppCompatActivity() {
         dialog.setContentView(panel)
         dialog.setCancelable(true)
         dialog.setCanceledOnTouchOutside(true)
-        dialog.setOnDismissListener {
-            activePlayer?.release()
-            activePlayer = null
-            activePlayButton?.text = "Play"
-            activePlayButton = null
-        }
         dialog.window?.apply {
             setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
             setLayout(-1, -2)
         }
-        configurePopupWindow(dialog)
-        dialog.show()
-        animateCenterDialogEntrance(dialog)
-    }
-
-    private fun setTextColorRecursively(view: View, color: Int) {
-        if (view is TextView) view.setTextColor(color)
-        if (view is android.view.ViewGroup) {
-            for (index in 0 until view.childCount) {
-                setTextColorRecursively(view.getChildAt(index), color)
+        configurePopupWindow(dialog, bottomSheet = true) {
+            activePlayer?.release()
+            activePlayer = null
+            activePlayButton?.setText(R.string.play)
+            activePlayButton?.contentDescription = activePlayerName?.let {
+                getString(R.string.play_recording_accessibility, it)
             }
+            activePlayButton = null
+            activePlayerName = null
         }
+        dialog.show()
+        animateBottomSheetEntrance(dialog)
     }
 
     private fun updateReplayWindowLabel() {
@@ -1441,8 +1477,8 @@ class MainActivity : AppCompatActivity() {
         val colors = palette()
 
         val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Checking for Updates")
-            .setMessage("Connecting to GitHub Releases...")
+            .setTitle(R.string.checking_for_updates)
+            .setMessage(R.string.connecting_to_releases)
             .setCancelable(false)
             .create()
 
@@ -1464,9 +1500,9 @@ class MainActivity : AppCompatActivity() {
 
             if (release == null) {
                 showUpdateResultDialog(
-                    title = "Update Check Failed",
-                    message = "Could not check for updates. Please verify your internet connection.\n\nInstalled version: v$versionName",
-                    positiveButton = "Close"
+                    title = getString(R.string.update_check_failed),
+                    message = getString(R.string.update_check_failed_message, versionName),
+                    positiveButton = getString(R.string.close)
                 )
             } else if (isNewerVersion(versionName, release.tagName)) {
                 val releaseTitle = release.name.takeIf { it.isNotBlank() } ?: release.tagName
@@ -1474,22 +1510,25 @@ class MainActivity : AppCompatActivity() {
                     ?.let { "\n\n$it" }
                     .orEmpty()
                 showUpdateResultDialog(
-                    title = "Update Available (${release.tagName})",
-                    message = "A new version of Voice Diary is ready to install.\n\n" +
-                        "$releaseTitle\n\n" +
-                        "• Installed: v$versionName\n" +
-                        "• Latest: ${release.tagName}$releaseNotes",
-                    positiveButton = "View Release",
+                    title = getString(R.string.update_available, release.tagName),
+                    message = getString(
+                        R.string.update_available_message,
+                        releaseTitle,
+                        versionName,
+                        release.tagName,
+                        releaseNotes
+                    ),
+                    positiveButton = getString(R.string.view_release),
                     positiveAction = { openUrlInBrowser(release.htmlUrl) },
-                    negativeButton = "Later",
+                    negativeButton = getString(R.string.later),
                     neutralButton = null,
                     neutralAction = null
                 )
             } else {
                 showUpdateResultDialog(
-                    title = "You're Up to Date",
-                    message = "Voice Diary v$versionName is currently the latest version available.",
-                    positiveButton = "Done"
+                    title = getString(R.string.up_to_date),
+                    message = getString(R.string.up_to_date_message, versionName),
+                    positiveButton = getString(R.string.done)
                 )
             }
         }
@@ -1578,9 +1617,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun openUrlInBrowser(url: String) {
         try {
-            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+            startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
         } catch (e: Exception) {
-            Toast.makeText(this, "Could not open browser", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.could_not_open_browser, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1613,16 +1652,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun configurePopupWindow(dialog: android.app.Dialog) {
+    private fun configurePopupWindow(
+        dialog: android.app.Dialog,
+        bottomSheet: Boolean = false,
+        onDismiss: (() -> Unit)? = null
+    ) {
         val popupWindow = dialog.window ?: return
         val screenWidth = mainScrollView.width.takeIf { it > 0 }
             ?: resources.displayMetrics.widthPixels
         val horizontalMargin = (40 * resources.displayMetrics.density).toInt()
-        popupWindow.setLayout((screenWidth - horizontalMargin).coerceAtLeast(1), -2)
+        popupWindow.setLayout(
+            if (bottomSheet) screenWidth else (screenWidth - horizontalMargin).coerceAtLeast(1),
+            -2
+        )
+        if (bottomSheet) popupWindow.setGravity(Gravity.BOTTOM)
         popupWindow.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         popupWindow.attributes = popupWindow.attributes.apply { dimAmount = 0.32f }
         blurMainScreen(true)
-        dialog.setOnDismissListener { blurMainScreen(false) }
+        dialog.setOnDismissListener {
+            blurMainScreen(false)
+            onDismiss?.invoke()
+        }
+    }
+
+    private fun animateBottomSheetEntrance(dialog: android.app.Dialog) {
+        val popupWindow = dialog.window ?: return
+        popupWindow.setWindowAnimations(0)
+        popupWindow.setGravity(Gravity.BOTTOM)
+        popupWindow.decorView.post {
+            if (!dialog.isShowing) return@post
+            popupWindow.decorView.apply {
+                translationY = height.toFloat()
+                animate()
+                    .translationY(0f)
+                    .setDuration(240)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                    .start()
+            }
+        }
     }
 
     private fun blurMainScreen(enabled: Boolean) {
@@ -1675,10 +1742,10 @@ class MainActivity : AppCompatActivity() {
     private fun confirmStopRecording() {
         val colors = palette()
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Stop audio replay?")
-            .setMessage("Stopping ends the rolling buffer. You can save the available audio before stopping.")
-            .setNegativeButton("Keep Recording", null)
-            .setPositiveButton("Stop") { _, _ ->
+            .setTitle(R.string.stop_audio_replay)
+            .setMessage(R.string.stop_recording_confirmation)
+            .setNegativeButton(R.string.keep_recording, null)
+            .setPositiveButton(R.string.stop) { _, _ ->
                 sendServiceAction(RecordingService.ACTION_STOP)
             }
             .create()
@@ -1697,12 +1764,10 @@ class MainActivity : AppCompatActivity() {
         if (isRecording || isSaving || !storageManager.hasFolderSelection()) return
         val colors = palette()
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Clear audio chunks?")
-            .setMessage(
-                "This permanently deletes unsaved audio chunks. Your saved recordings will not be affected."
-            )
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Clear Chunks") { _, _ -> clearAudioChunks() }
+            .setTitle(R.string.clear_audio_chunks_confirmation_title)
+            .setMessage(R.string.clear_audio_chunks_confirmation_message)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.clear_chunks) { _, _ -> clearAudioChunks() }
             .create()
             .apply {
                 window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))

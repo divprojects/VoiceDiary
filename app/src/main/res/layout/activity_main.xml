@@ -17,10 +17,11 @@
         android:paddingEnd="16dp"
         android:paddingBottom="36dp">
 
-        <!-- iOS 18 Large Navigation Header -->
+        <!-- Large title header -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="64dp"
+            android:layout_height="wrap_content"
+            android:minHeight="64dp"
             android:layout_marginBottom="16dp">
 
             <LinearLayout
@@ -49,8 +50,8 @@
 
                 <ImageButton
                     android:id="@+id/updateButton"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_marginEnd="10dp"
                     android:background="@drawable/button_black"
                     android:contentDescription="@string/check_for_app_updates"
@@ -60,8 +61,8 @@
 
                 <ImageButton
                     android:id="@+id/themeToggleButton"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/button_black"
                     android:contentDescription="@string/switch_theme"
                     android:padding="11dp"
@@ -158,7 +159,8 @@
             <Button
                 android:id="@+id/startButton"
                 android:layout_width="match_parent"
-                android:layout_height="54dp"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginBottom="12dp"
                 android:background="@drawable/button_white"
                 android:contentDescription="@string/recording_button_description"
@@ -171,7 +173,8 @@
             <Button
                 android:id="@+id/saveButton"
                 android:layout_width="match_parent"
-                android:layout_height="54dp"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:background="@drawable/button_white"
                 android:contentDescription="@string/save_replay_description"
                 android:text="@string/save_available_audio"
@@ -211,7 +214,8 @@
             <TextView
                 android:id="@+id/segmentLengthPickerButton"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginTop="10dp"
                 android:layout_marginBottom="10dp"
                 android:background="@drawable/spinner_square"
@@ -277,7 +281,8 @@
             <Button
                 android:id="@+id/openRecordingsButton"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginBottom="10dp"
                 android:background="@drawable/button_white"
                 android:contentDescription="@string/open_saved_recordings_description"
@@ -289,7 +294,8 @@
             <Button
                 android:id="@+id/changeFolderButton"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginBottom="10dp"
                 android:background="@drawable/button_white"
                 android:contentDescription="@string/choose_change_recordings_folder_description"
@@ -301,7 +307,8 @@
             <Button
                 android:id="@+id/clearChunksButton"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginBottom="4dp"
                 android:background="@drawable/button_white"
                 android:contentDescription="@string/clear_audio_chunks_description"

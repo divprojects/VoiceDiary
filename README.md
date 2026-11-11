@@ -10,7 +10,7 @@ Voice Diary is an Android app that continuously keeps a short, rolling recording
 4. Tap **Save Available Audio** to keep the recent continuous audio in `Your Saved Audio`.
 5. **Clear Audio Chunks** removes temporary Voice Diary chunks only; it does not delete saved replays or unrelated files.
 
-The app also has appearance controls, a first-launch spotlight guide, and live update checking via GitHub Releases. The update button checks `divprojects/VoiceDiary` and opens the release page in your browser; APK installation is handled by Android.
+The app also has appearance controls, a first-launch spotlight guide, and live update checking via GitHub Releases. Saved recordings can be played, shared through Android's share sheet, or deleted in the app. The update button checks `divprojects/VoiceDiary` and opens the release page in your browser; APK installation is handled by Android.
 
 ## Build and test on Windows
 
@@ -65,4 +65,4 @@ For the full file-by-file map and the path an audio recording takes through the 
 - Voice Diary records microphone input. Android does not allow ordinary apps to reliably capture phone calls or other apps' internal audio.
 - A foreground service is used to continue recording when the app is swiped away. Android can still stop recording because of force-stop, permission changes, device policies, or hardware interruptions.
 - After a reboot, Android requires the user to tap a notification before microphone recording can resume.
-- Audio is saved locally. In-app playback and cloud sharing are not configured.
+- Audio is saved locally. Sharing is initiated only when you choose Share; the app does not sync recordings to a cloud service.
