@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
     private var lastStorageRefreshAt = 0L
     private var storageAccessAvailable: Boolean? = null
     private var resumeAfterRestartPending = false
+    private var pendingApkToInstall: java.io.File? = null
     private data class UiPalette(
         val background: Int,
         val surface: Int,
@@ -295,6 +296,14 @@ class MainActivity : AppCompatActivity() {
         updateButtons()
         uiHandler.removeCallbacks(replayWindowUpdater)
         uiHandler.post(replayWindowUpdater)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pendingApkToInstall != null) {
+            if (packageManager.canRequestPackageInstalls()) {
+                val apkFile = pendingApkToInstall
+                pendingApkToInstall = null
+                installApk(apkFile!!)
+            }
+        }
     }
 
     override fun onPause() {
@@ -1607,9 +1616,27 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     file = java.io.File(getExternalFilesDir(null), "update.apk")
+                    val totalLength = conn.contentLengthLong
                     conn.inputStream.use { input ->
                         file.outputStream().use { output ->
-                            input.copyTo(output)
+                            val buffer = ByteArray(8192)
+                            var bytesRead: Int
+                            var downloadedBytes = 0L
+                            var lastReportTime = 0L
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                output.write(buffer, 0, bytesRead)
+                                downloadedBytes += bytesRead
+                                val now = System.currentTimeMillis()
+                                if (totalLength > 0 && now - lastReportTime > 200) {
+                                    lastReportTime = now
+                                    val percent = ((downloadedBytes * 100) / totalLength).toInt()
+                                    withContext(Dispatchers.Main) {
+                                        progressDialog.setMessage(
+                                            getString(R.string.downloading_update_message) + " $percent%"
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                     conn.disconnect()
@@ -1639,6 +1666,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun installApk(file: java.io.File) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!packageManager.canRequestPackageInstalls()) {
+                pendingApkToInstall = file
+                try {
+                    val intent = Intent(
+                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        "package:$packageName".toUri()
+                    )
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e("VoiceDiaryUpdate", "Could not open unknown app sources settings", e)
+                }
+                Toast.makeText(
+                    this,
+                    "Please allow 'Install unknown apps' for Voice Diary to continue installation.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return
+            }
+        }
+
         try {
             val uri = androidx.core.content.FileProvider.getUriForFile(
                 this,
@@ -1652,6 +1700,7 @@ class MainActivity : AppCompatActivity() {
             }
             startActivity(intent)
         } catch (e: Exception) {
+            Log.e("VoiceDiaryUpdate", "Install intent error", e)
             Toast.makeText(
                 this,
                 getString(R.string.installation_failed, e.localizedMessage ?: ""),
