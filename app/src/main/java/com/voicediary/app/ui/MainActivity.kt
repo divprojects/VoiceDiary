@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.animation.ValueAnimator
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
@@ -84,7 +83,6 @@ class MainActivity : AppCompatActivity() {
     private var lastStorageRefreshAt = 0L
     private var storageAccessAvailable: Boolean? = null
     private var resumeAfterRestartPending = false
-    private var recordingPulseAnimator: ValueAnimator? = null
     private data class UiPalette(
         val background: Int,
         val surface: Int,
@@ -110,10 +108,8 @@ class MainActivity : AppCompatActivity() {
                 resumeAfterRestartPending = false
                 BootResumeState.clearResumePending(this@MainActivity)
             }
-            setStatusText(
-                intent.getStringExtra(RecordingService.EXTRA_STATUS_MESSAGE)
-                    ?: if (isRecording) "Recording microphone audio." else "Recording stopped."
-            )
+            statusText.text = intent.getStringExtra(RecordingService.EXTRA_STATUS_MESSAGE)
+                ?: if (isRecording) "Recording microphone audio." else "Recording stopped."
             if (statusText.text.startsWith("Saved ")) {
                 Toast.makeText(this@MainActivity, statusText.text, Toast.LENGTH_SHORT).show()
             }
@@ -311,8 +307,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        recordingPulseAnimator?.cancel()
-        recordingPulseAnimator = null
         super.onDestroy()
     }
 
@@ -378,7 +372,7 @@ class MainActivity : AppCompatActivity() {
     private fun startRecording() {
         val minutes = storageManager.getSegmentMinutes()
         storageManager.setSegmentMinutes(minutes)
-        setStatusText(getString(R.string.recording_starting))
+        statusText.setText(R.string.recording_starting)
         isRecording = true
         resumeAfterRestartPending = false
         updateButtons()
@@ -621,28 +615,9 @@ class MainActivity : AppCompatActivity() {
             shape = GradientDrawable.OVAL
             setColor(stateColor)
         }
-        if (isRecording && recordingPulseAnimator == null) {
-            recordingPulseAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = RECORDING_PULSE_DURATION_MILLIS
-                repeatMode = ValueAnimator.REVERSE
-                repeatCount = ValueAnimator.INFINITE
-                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
-                addUpdateListener {
-                    val progress = it.animatedValue as Float
-                    recordingStateDot.alpha = 0.3f + 0.7f * progress
-                    val scale = 0.9f + 0.1f * progress
-                    recordingStateDot.scaleX = scale
-                    recordingStateDot.scaleY = scale
-                }
-                start()
-            }
-        } else if (!isRecording && recordingPulseAnimator != null) {
-            recordingPulseAnimator?.cancel()
-            recordingPulseAnimator = null
-            recordingStateDot.alpha = 1f
-            recordingStateDot.scaleX = 1f
-            recordingStateDot.scaleY = 1f
-        }
+        recordingStateDot.alpha = 1f
+        recordingStateDot.scaleX = 1f
+        recordingStateDot.scaleY = 1f
         val hasRecordingsFolder =
             storageManager.hasFolderSelection() && storageAccessAvailable == true
         openRecordingsButton.isEnabled = hasRecordingsFolder && !isSaving
@@ -709,12 +684,10 @@ class MainActivity : AppCompatActivity() {
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
-                    v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).start()
                     true
                 }
                 android.view.MotionEvent.ACTION_UP -> {
                     v.isPressed = false
-                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
                     val isInside = event.x >= 0 && event.y >= 0 &&
                         event.x < v.width && event.y < v.height
                     if (isInside) v.performClick()
@@ -722,28 +695,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 android.view.MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start()
                     true
                 }
                 else -> true
             }
         }
-    }
-
-    private fun setStatusText(text: CharSequence) {
-        if (statusText.text == text) return
-        statusText.animate()
-            .alpha(0f)
-            .setDuration(100)
-            .withEndAction {
-                if (isFinishing || isDestroyed) return@withEndAction
-                statusText.text = text
-                statusText.animate()
-                    .alpha(1f)
-                    .setDuration(160)
-                    .start()
-            }
-            .start()
     }
 
     private fun updateDurationPickerLabel() {
@@ -1777,23 +1733,6 @@ class MainActivity : AppCompatActivity() {
         val popupWindow = dialog.window ?: return
         popupWindow.setWindowAnimations(0)
         popupWindow.setGravity(Gravity.CENTER)
-        popupWindow.decorView.post {
-            if (!dialog.isShowing) return@post
-            popupWindow.decorView.apply {
-                alpha = 0f
-                scaleX = 0.90f
-                scaleY = 0.90f
-                pivotX = width / 2f
-                pivotY = height / 2f
-                animate()
-                    .alpha(1f)
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
-                    .setDuration(220)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
-                    .start()
-            }
-        }
     }
 
     private fun configurePopupWindow(
@@ -1823,17 +1762,6 @@ class MainActivity : AppCompatActivity() {
         val popupWindow = dialog.window ?: return
         popupWindow.setWindowAnimations(0)
         popupWindow.setGravity(Gravity.BOTTOM)
-        popupWindow.decorView.post {
-            if (!dialog.isShowing) return@post
-            popupWindow.decorView.apply {
-                translationY = height.toFloat()
-                animate()
-                    .translationY(0f)
-                    .setDuration(240)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
-                    .start()
-            }
-        }
     }
 
     private fun blurMainScreen(enabled: Boolean) {
@@ -2003,6 +1931,5 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
         private const val STORAGE_STATUS_REFRESH_MILLIS = 15_000L
         private const val GUIDE_SCROLL_SETTLE_MILLIS = 350L
-        private const val RECORDING_PULSE_DURATION_MILLIS = 850L
     }
 }
