@@ -85,7 +85,7 @@ class MainActivity : AppCompatActivity() {
     private var lastStorageRefreshAt = 0L
     private var storageAccessAvailable: Boolean? = null
     private var resumeAfterRestartPending = false
-    private var pendingApkToInstall: java.io.File? = null
+    private var updateDialogVisible = false
     private data class UiPalette(
         val background: Int,
         val surface: Int,
@@ -298,11 +298,6 @@ class MainActivity : AppCompatActivity() {
         updateButtons()
         uiHandler.removeCallbacks(replayWindowUpdater)
         uiHandler.post(replayWindowUpdater)
-        if (pendingApkToInstall != null && packageManager.canRequestPackageInstalls()) {
-            val apkFile = pendingApkToInstall
-            pendingApkToInstall = null
-            installApk(apkFile!!)
-        }
     }
 
     override fun onPause() {
@@ -1430,6 +1425,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showUpdateStatus() {
+        if (updateDialogVisible) return
+        updateDialogVisible = true
+
         val versionName = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
         } catch (e: Exception) {
@@ -1451,6 +1449,7 @@ class MainActivity : AppCompatActivity() {
             progressDialog.findViewById<TextView>(android.R.id.message)
                 ?.setTextColor(colors.secondaryText)
         }
+        progressDialog.setOnDismissListener { updateDialogVisible = false }
         progressDialog.show()
 
         lifecycleScope.launch {
@@ -1483,18 +1482,8 @@ class MainActivity : AppCompatActivity() {
                         release.tagName,
                         releaseNotes
                     ),
-                    positiveButton = if (release.apkDownloadUrl != null) {
-                        getString(R.string.install_update)
-                    } else {
-                        getString(R.string.view_release)
-                    },
-                    positiveAction = {
-                        if (release.apkDownloadUrl != null) {
-                            downloadAndInstallUpdate(release.apkDownloadUrl)
-                        } else {
-                            openUrlInBrowser(release.htmlUrl)
-                        }
-                    },
+                    positiveButton = getString(R.string.view_release),
+                    positiveAction = { openUrlInBrowser(release.htmlUrl) },
                     negativeButton = getString(R.string.later),
                     negativeAction = null
                 )
@@ -1544,6 +1533,7 @@ class MainActivity : AppCompatActivity() {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEGATIVE)?.setTextColor(colors.secondaryText)
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL)?.setTextColor(colors.secondaryText)
         }
+        dialog.setOnDismissListener { updateDialogVisible = false }
         configurePopupWindow(dialog)
         dialog.show()
     }
@@ -1553,128 +1543,6 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
         } catch (e: Exception) {
             Toast.makeText(this, R.string.could_not_open_browser, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun downloadAndInstallUpdate(downloadUrl: String) {
-        val colors = palette()
-        val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(R.string.downloading_update)
-            .setMessage(R.string.downloading_update_message)
-            .setCancelable(false)
-            .create()
-        progressDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
-        configurePopupWindow(progressDialog)
-        progressDialog.setOnShowListener {
-            progressDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)
-                ?.setTextColor(colors.text)
-            progressDialog.findViewById<TextView>(android.R.id.message)
-                ?.setTextColor(colors.secondaryText)
-        }
-        progressDialog.show()
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            val apkFile = java.io.File(cacheDir, "voice-diary-update.apk")
-            try {
-                downloadApk(downloadUrl, apkFile)
-                withContext(Dispatchers.Main) {
-                    progressDialog.dismiss()
-                    installApk(apkFile)
-                }
-            } catch (exception: Exception) {
-                apkFile.delete()
-                withContext(Dispatchers.Main) {
-                    progressDialog.dismiss()
-                    Toast.makeText(
-                        this@MainActivity,
-                        getString(
-                            R.string.download_failed,
-                            exception.localizedMessage ?: "Network error"
-                        ),
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-        }
-    }
-
-    private fun downloadApk(downloadUrl: String, destination: java.io.File) {
-        val url = java.net.URL(downloadUrl)
-        require(url.protocol == "https") { "Update downloads must use HTTPS." }
-        val connection = url.openConnection() as java.net.HttpURLConnection
-        connection.instanceFollowRedirects = true
-        connection.connectTimeout = 15_000
-        connection.readTimeout = 30_000
-        connection.setRequestProperty("User-Agent", "VoiceDiary-AndroidApp")
-
-        try {
-            val responseCode = connection.responseCode
-            if (responseCode !in 200..299) {
-                throw java.io.IOException("Update download failed (HTTP $responseCode).")
-            }
-            if (!connection.url.protocol.equals("https", ignoreCase = true)) {
-                throw java.io.IOException("The update redirected to an insecure URL.")
-            }
-            if (connection.contentType.orEmpty().contains("text/html", ignoreCase = true)) {
-                throw java.io.IOException("GitHub returned a web page instead of the APK.")
-            }
-
-            connection.inputStream.use { input ->
-                destination.outputStream().use { output -> input.copyTo(output) }
-            }
-            val isZipApk = destination.inputStream().use {
-                it.read() == 'P'.code && it.read() == 'K'.code
-            }
-            if (destination.length() < 4L || !isZipApk) {
-                throw java.io.IOException("Downloaded update is not a valid APK file.")
-            }
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun installApk(file: java.io.File) {
-        if (!packageManager.canRequestPackageInstalls()) {
-            pendingApkToInstall = file
-            try {
-                startActivity(
-                    Intent(
-                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        "package:$packageName".toUri()
-                    )
-                )
-            } catch (exception: Exception) {
-                Log.e("VoiceDiaryUpdate", "Could not open install permission settings.", exception)
-                pendingApkToInstall = null
-                Toast.makeText(
-                    this,
-                    getString(R.string.installation_failed, exception.localizedMessage ?: ""),
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-            return
-        }
-
-        try {
-            val apkUri = androidx.core.content.FileProvider.getUriForFile(
-                this,
-                "${packageName}.fileprovider",
-                file
-            )
-            startActivity(
-                Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(apkUri, "application/vnd.android.package-archive")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            )
-        } catch (exception: Exception) {
-            Log.e("VoiceDiaryUpdate", "Could not open Android's package installer.", exception)
-            Toast.makeText(
-                this,
-                getString(R.string.installation_failed, exception.localizedMessage ?: ""),
-                Toast.LENGTH_LONG
-            ).show()
         }
     }
 
