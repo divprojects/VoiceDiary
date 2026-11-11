@@ -109,8 +109,10 @@ class MainActivity : AppCompatActivity() {
                 resumeAfterRestartPending = false
                 BootResumeState.clearResumePending(this@MainActivity)
             }
-            statusText.text = intent.getStringExtra(RecordingService.EXTRA_STATUS_MESSAGE)
-                ?: if (isRecording) "Recording microphone audio." else "Recording stopped."
+            setStatusText(
+                intent.getStringExtra(RecordingService.EXTRA_STATUS_MESSAGE)
+                    ?: if (isRecording) "Recording microphone audio." else "Recording stopped."
+            )
             if (statusText.text.startsWith("Saved ")) {
                 Toast.makeText(this@MainActivity, statusText.text, Toast.LENGTH_SHORT).show()
             }
@@ -375,7 +377,7 @@ class MainActivity : AppCompatActivity() {
     private fun startRecording() {
         val minutes = storageManager.getSegmentMinutes()
         storageManager.setSegmentMinutes(minutes)
-        statusText.setText(R.string.recording_starting)
+        setStatusText(getString(R.string.recording_starting))
         isRecording = true
         resumeAfterRestartPending = false
         updateButtons()
@@ -725,6 +727,22 @@ class MainActivity : AppCompatActivity() {
                 else -> true
             }
         }
+    }
+
+    private fun setStatusText(text: CharSequence) {
+        if (statusText.text == text) return
+        statusText.animate()
+            .alpha(0f)
+            .setDuration(100)
+            .withEndAction {
+                if (isFinishing || isDestroyed) return@withEndAction
+                statusText.text = text
+                statusText.animate()
+                    .alpha(1f)
+                    .setDuration(160)
+                    .start()
+            }
+            .start()
     }
 
     private fun updateDurationPickerLabel() {
