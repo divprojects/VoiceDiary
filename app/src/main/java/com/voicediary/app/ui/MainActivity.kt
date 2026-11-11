@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.animation.ValueAnimator
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -1618,30 +1619,62 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val url = java.net.URL(apkUrl)
-                val conn = url.openConnection() as java.net.HttpURLConnection
-                conn.connect()
-                if (conn.responseCode != 200) {
-                    throw java.io.IOException("HTTP error ${conn.responseCode}")
-                }
-                val file = java.io.File(getExternalFilesDir(null), "update.apk")
-                conn.inputStream.use { input ->
-                    file.outputStream().use { output ->
-                        input.copyTo(output)
+                var currentUrl = apkUrl
+                var file: java.io.File? = null
+                var redirectCount = 0
+                while (redirectCount < 5) {
+                    val url = java.net.URL(currentUrl)
+                    val conn = url.openConnection() as java.net.HttpURLConnection
+                    conn.instanceFollowRedirects = false
+                    conn.connectTimeout = 15000
+                    conn.readTimeout = 20000
+                    conn.setRequestProperty("User-Agent", "VoiceDiary-AndroidApp")
+                    conn.connect()
+
+                    val status = conn.responseCode
+                    if (status == java.net.HttpURLConnection.HTTP_MOVED_TEMP ||
+                        status == java.net.HttpURLConnection.HTTP_MOVED_PERM ||
+                        status == java.net.HttpURLConnection.HTTP_SEE_OTHER ||
+                        status == 307 || status == 308) {
+                        val redirectUrl = conn.getHeaderField("Location")
+                        conn.disconnect()
+                        if (redirectUrl != null) {
+                            currentUrl = redirectUrl
+                            redirectCount++
+                            continue
+                        }
                     }
+
+                    if (status != 200) {
+                        conn.disconnect()
+                        throw java.io.IOException("HTTP error $status")
+                    }
+
+                    file = java.io.File(getExternalFilesDir(null), "update.apk")
+                    conn.inputStream.use { input ->
+                        file.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    conn.disconnect()
+                    break
                 }
-                conn.disconnect()
+
+                if (file == null || !file.exists() || file.length() == 0L) {
+                    throw java.io.IOException("Downloaded APK file is empty or missing.")
+                }
 
                 withContext(Dispatchers.Main) {
                     progressDialog.dismiss()
                     installApk(file)
                 }
             } catch (e: Exception) {
+                Log.e("VoiceDiaryUpdate", "Download error", e)
                 withContext(Dispatchers.Main) {
                     progressDialog.dismiss()
                     Toast.makeText(
                         this@MainActivity,
-                        getString(R.string.download_failed, e.localizedMessage ?: ""),
+                        getString(R.string.download_failed, e.localizedMessage ?: "Network error"),
                         Toast.LENGTH_LONG
                     ).show()
                 }
