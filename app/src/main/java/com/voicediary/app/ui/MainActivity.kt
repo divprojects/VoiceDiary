@@ -43,6 +43,8 @@ import com.voicediary.app.recording.BootResumeState
 import com.voicediary.app.recording.RecordingService
 import com.voicediary.app.storage.SavedRecording
 import com.voicediary.app.storage.StorageManager
+import com.voicediary.app.update.GitHubReleaseClient
+import com.voicediary.app.update.ReleaseVersion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -297,12 +299,10 @@ class MainActivity : AppCompatActivity() {
         uiHandler.removeCallbacks(replayWindowUpdater)
         uiHandler.post(replayWindowUpdater)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pendingApkToInstall != null) {
-            if (packageManager.canRequestPackageInstalls()) {
-                val apkFile = pendingApkToInstall
-                pendingApkToInstall = null
-                installApk(apkFile!!)
-            }
+        if (pendingApkToInstall != null && packageManager.canRequestPackageInstalls()) {
+            val apkFile = pendingApkToInstall
+            pendingApkToInstall = null
+            installApk(apkFile!!)
         }
     }
 
@@ -1445,14 +1445,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private data class GitHubRelease(
-        val tagName: String,
-        val name: String,
-        val htmlUrl: String,
-        val body: String,
-        val apkDownloadUrl: String?
-    )
-
     private fun showUpdateStatus() {
         val versionName = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0.0"
@@ -1475,7 +1467,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val release = try {
-                fetchLatestReleaseFromGitHub()
+                GitHubReleaseClient.fetchLatestRelease()
             } catch (e: Exception) {
                 null
             }
@@ -1489,7 +1481,7 @@ class MainActivity : AppCompatActivity() {
                     message = getString(R.string.update_check_failed_message, versionName),
                     positiveButton = getString(R.string.close)
                 )
-            } else if (isNewerVersion(versionName, release.tagName)) {
+            } else if (ReleaseVersion.isNewer(versionName, release.tagName)) {
                 val releaseTitle = release.name.takeIf { it.isNotBlank() } ?: release.tagName
                 val releaseNotes = release.body.trim().takeIf { it.isNotEmpty() }
                     ?.let { "\n\n$it" }
@@ -1523,48 +1515,6 @@ class MainActivity : AppCompatActivity() {
                     positiveButton = getString(R.string.done)
                 )
             }
-        }
-    }
-
-    private suspend fun fetchLatestReleaseFromGitHub(): GitHubRelease = withContext(Dispatchers.IO) {
-        val url = java.net.URL("https://api.github.com/repos/divprojects/VoiceDiary/releases/latest")
-        val conn = url.openConnection() as java.net.HttpURLConnection
-        conn.requestMethod = "GET"
-        conn.setRequestProperty("Accept", "application/vnd.github+json")
-        conn.setRequestProperty("User-Agent", "VoiceDiary-AndroidApp")
-        conn.connectTimeout = 8000
-        conn.readTimeout = 8000
-
-        try {
-            if (conn.responseCode != 200) {
-                throw java.io.IOException("HTTP error code ${conn.responseCode}")
-            }
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = org.json.JSONObject(text)
-            val tagName = json.optString("tag_name", "v1.0.0")
-            val name = json.optString("name", tagName)
-            val htmlUrl = json.optString("html_url", "https://github.com/divprojects/VoiceDiary/releases")
-            val body = json.optString("body", "")
-
-            val assets = json.optJSONArray("assets")
-            var apkUrl: String? = null
-            if (assets != null) {
-                for (i in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(i)
-                    val assetName = asset.optString("name", "")
-                    if (assetName.contains("apk", ignoreCase = true)) {
-                        apkUrl = asset.optString("browser_download_url").takeIf { it.isNotBlank() }
-                        break
-                    }
-                }
-            }
-            if (apkUrl == null) {
-                apkUrl = "https://github.com/divprojects/VoiceDiary/releases/download/$tagName/app-debug.apk"
-            }
-
-            GitHubRelease(tagName, name, htmlUrl, body, apkUrl)
-        } finally {
-            conn.disconnect()
         }
     }
 
@@ -1666,25 +1616,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun installApk(file: java.io.File) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (!packageManager.canRequestPackageInstalls()) {
-                pendingApkToInstall = file
-                try {
-                    val intent = Intent(
-                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        "package:$packageName".toUri()
-                    )
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e("VoiceDiaryUpdate", "Could not open unknown app sources settings", e)
-                }
-                Toast.makeText(
-                    this,
-                    "Please allow 'Install unknown apps' for Voice Diary to continue installation.",
-                    Toast.LENGTH_LONG
-                ).show()
-                return
+        if (!packageManager.canRequestPackageInstalls()) {
+            pendingApkToInstall = file
+            try {
+                val intent = Intent(
+                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    "package:$packageName".toUri()
+                )
+                startActivity(intent)
+            } catch (e: Exception) {
+                Log.e("VoiceDiaryUpdate", "Could not open unknown app sources settings", e)
             }
+            Toast.makeText(
+                this,
+                "Please allow 'Install unknown apps' for Voice Diary to continue installation.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
         }
 
         try {
@@ -1707,20 +1655,6 @@ class MainActivity : AppCompatActivity() {
                 Toast.LENGTH_LONG
             ).show()
         }
-    }
-
-    private fun isNewerVersion(currentVersion: String, latestVersion: String): Boolean {
-        val current = currentVersion.trimStart('v', 'V').split('.').mapNotNull { it.toIntOrNull() }
-        val latest = latestVersion.trimStart('v', 'V').split('.').mapNotNull { it.toIntOrNull() }
-
-        val maxLen = maxOf(current.size, latest.size)
-        for (i in 0 until maxLen) {
-            val c = current.getOrElse(i) { 0 }
-            val l = latest.getOrElse(i) { 0 }
-            if (l > c) return true
-            if (l < c) return false
-        }
-        return false
     }
 
     private fun showUpdateResultDialog(

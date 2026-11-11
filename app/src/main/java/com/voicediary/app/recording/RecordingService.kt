@@ -176,7 +176,7 @@ class RecordingService : Service() {
             .setSmallIcon(android.R.drawable.stat_notify_call_mute)
             .setContentIntent(openAppPendingIntent)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setOngoing(isRecording || isSaving)
             .addAction(0, "Save", savePendingIntent)
             .addAction(0, "Stop", stopPendingIntent)
