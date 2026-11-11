@@ -1465,7 +1465,8 @@ class MainActivity : AppCompatActivity() {
         val tagName: String,
         val name: String,
         val htmlUrl: String,
-        val body: String
+        val body: String,
+        val apkDownloadUrl: String?
     )
 
     private fun showUpdateStatus() {
@@ -1518,11 +1519,18 @@ class MainActivity : AppCompatActivity() {
                         release.tagName,
                         releaseNotes
                     ),
-                    positiveButton = getString(R.string.view_release),
-                    positiveAction = { openUrlInBrowser(release.htmlUrl) },
+                    positiveButton = if (release.apkDownloadUrl != null) getString(R.string.install_update) else getString(R.string.view_release),
+                    positiveAction = {
+                        if (release.apkDownloadUrl != null) {
+                            downloadAndInstallUpdate(release.apkDownloadUrl)
+                        } else {
+                            openUrlInBrowser(release.htmlUrl)
+                        }
+                    },
                     negativeButton = getString(R.string.later),
-                    neutralButton = null,
-                    neutralAction = null
+                    negativeAction = null,
+                    neutralButton = if (release.apkDownloadUrl != null) getString(R.string.view_release) else null,
+                    neutralAction = if (release.apkDownloadUrl != null) { { openUrlInBrowser(release.htmlUrl) } } else null
                 )
             } else {
                 showUpdateResultDialog(
@@ -1554,9 +1562,91 @@ class MainActivity : AppCompatActivity() {
             val htmlUrl = json.optString("html_url", "https://github.com/divprojects/VoiceDiary/releases")
             val body = json.optString("body", "")
 
-            GitHubRelease(tagName, name, htmlUrl, body)
+            val assets = json.optJSONArray("assets")
+            var apkUrl: String? = null
+            if (assets != null) {
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    val assetName = asset.optString("name", "")
+                    if (assetName.endsWith(".apk", ignoreCase = true)) {
+                        apkUrl = asset.optString("browser_download_url").takeIf { it.isNotBlank() }
+                        break
+                    }
+                }
+            }
+
+            GitHubRelease(tagName, name, htmlUrl, body, apkUrl)
         } finally {
             conn.disconnect()
+        }
+    }
+
+    private fun downloadAndInstallUpdate(apkUrl: String) {
+        val colors = palette()
+        val progressDialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.downloading_update)
+            .setMessage(R.string.downloading_update_message)
+            .setCancelable(false)
+            .create()
+
+        progressDialog.show()
+        progressDialog.window?.setBackgroundDrawable(roundedSurface(colors.border, colors.surface))
+        progressDialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.setTextColor(colors.text)
+        progressDialog.findViewById<TextView>(android.R.id.message)?.setTextColor(colors.secondaryText)
+        animateDialogEntrance(progressDialog)
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url = java.net.URL(apkUrl)
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.connect()
+                if (conn.responseCode != 200) {
+                    throw java.io.IOException("HTTP error ${conn.responseCode}")
+                }
+                val file = java.io.File(getExternalFilesDir(null), "update.apk")
+                conn.inputStream.use { input ->
+                    file.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                conn.disconnect()
+
+                withContext(Dispatchers.Main) {
+                    progressDialog.dismiss()
+                    installApk(file)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    progressDialog.dismiss()
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.download_failed, e.localizedMessage ?: ""),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun installApk(file: java.io.File) {
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this,
+                "${packageName}.fileprovider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                getString(R.string.installation_failed, e.localizedMessage ?: ""),
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
